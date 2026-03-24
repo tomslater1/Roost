@@ -30,6 +30,7 @@ mac:
     NSMicrophoneUsageDescription: Application requests access to the device's microphone.
   notarize: false
 dmg:
+  artifactName: Roost.dmg
   contents:
     - x: 130
       y: 220
