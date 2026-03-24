@@ -5,7 +5,7 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { motion, AnimatePresence } from "motion/react"
-import { Home, Users } from "lucide-react"
+import { Home, Users, LogOut } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuthContext } from "@/context/AuthContext"
 
@@ -252,6 +252,23 @@ export function Setup() {
 
           </form>
         </motion.div>
+
+        {/* Sign out escape hatch */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.3 }}
+          className="mt-6 text-center"
+        >
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LogOut className="w-3 h-3" />
+            Sign out
+          </button>
+        </motion.div>
+
       </div>
     </div>
   )

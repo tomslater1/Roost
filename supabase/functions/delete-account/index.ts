@@ -37,12 +37,33 @@ Deno.serve(async (req: Request) => {
     const { data: { user }, error: userError } = await userClient.auth.getUser()
     if (userError || !user) return json({ error: userError?.message ?? 'Invalid token' }, 401)
 
-    // Clean up home data — leave_home() handles last-member cascade
+    // Clean up home data — leave_home() handles last-member cascade.
+    // If the user is the last member, the home and all its data cascade-delete automatically.
+    // If a partner remains, we must manually clean up all FK references to this user.
     const { error: leaveError } = await userClient.rpc('leave_home')
     if (leaveError) return json({ error: `leave_home failed: ${leaveError.message}` }, 500)
 
-    // Delete the auth user via admin API — only way to remove from auth.users
+    // Use admin client (service role) to bypass RLS for all cleanup below.
     const adminClient = createClient(supabaseUrl, serviceRoleKey)
+
+    // Null out nullable columns that reference this user in shared home data.
+    await adminClient.from('shopping_items').update({ added_by: null }).eq('added_by', user.id)
+    await adminClient.from('shopping_items').update({ checked_by: null }).eq('checked_by', user.id)
+    await adminClient.from('chores').update({ assigned_to: null }).eq('assigned_to', user.id)
+    await adminClient.from('chores').update({ completed_by: null }).eq('completed_by', user.id)
+    await adminClient.from('activity_feed').update({ user_id: null }).eq('user_id', user.id)
+
+    // Delete rows with NOT NULL FK references — these can't be nulled.
+    await adminClient.from('expense_splits').delete().eq('user_id', user.id)
+    await adminClient.from('expenses').delete().eq('paid_by', user.id)
+    await adminClient.from('settlements').delete().or(`paid_by.eq.${user.id},paid_to.eq.${user.id}`)
+
+    // Delete user-specific tables (cascade would handle these but be explicit).
+    await adminClient.from('notifications').delete().eq('user_id', user.id)
+    await adminClient.from('notification_preferences').delete().eq('user_id', user.id)
+    await adminClient.from('user_preferences').delete().eq('user_id', user.id)
+
+    // Delete the auth user via admin API — only way to remove from auth.users.
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id)
     if (deleteError) return json({ error: `deleteUser failed: ${deleteError.message}` }, 500)
 
