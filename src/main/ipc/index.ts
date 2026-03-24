@@ -87,6 +87,8 @@ export function registerIpcHandlers(): void {
   // isSilent=true skips any native install dialog (required for unsigned macOS apps).
   // isForceRunAfter=true relaunches the app after install.
   ipcMain.handle('updater:install', () => {
-    autoUpdater.quitAndInstall(true, true)
+    // Defer until after the IPC reply is flushed — calling quitAndInstall
+    // synchronously inside an ipcMain.handle can deadlock the quit on macOS.
+    setImmediate(() => autoUpdater.quitAndInstall(true, true))
   })
 }
