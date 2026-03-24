@@ -6,11 +6,11 @@ import { spawn } from 'child_process'
 import { autoUpdater } from 'electron-updater'
 import { writeFileSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { normalizeText, suggestChores } from '../claude'
 
 
-export function registerIpcHandlers(): void {
+export function registerIpcHandlers(getZipPath: () => string | null): void {
   // Show a native macOS notification.
   // Called by the renderer when a new notification arrives via realtime.
   ipcMain.handle('notify', (_event, { title, body }: { title: string; body?: string }) => {
@@ -85,24 +85,32 @@ export function registerIpcHandlers(): void {
   })
 
   // Quit and install the downloaded update.
-  // isSilent=true skips any native install dialog (required for unsigned macOS apps).
-  // isForceRunAfter=true relaunches the app after install.
+  // electron-updater on macOS delegates to Squirrel.Mac which refuses unsigned
+  // apps. We bypass it: grab the zip electron-updater already downloaded, spawn
+  // a detached shell script that extracts it after we quit, strips the quarantine
+  // attribute (so Gatekeeper doesn't block relaunch), then opens the new bundle.
   ipcMain.handle('updater:install', () => {
-    setImmediate(() => {
-      // electron-updater's built-in relaunch (app.relaunch) doesn't work for
-      // unsigned macOS apps — the new binary is quarantined by Gatekeeper.
-      // Instead, spawn a detached `open` command that fires after the install
-      // completes, which macOS handles correctly for unsigned apps.
-      const dotApp = process.execPath.indexOf('.app')
-      if (dotApp !== -1) {
-        const appPath = process.execPath.substring(0, dotApp + 4)
-        spawn('sh', ['-c', `sleep 3 && open "${appPath}"`], {
-          detached: true,
-          stdio: 'ignore',
-        }).unref()
-      }
-      // isForceRunAfter=false: skip electron-updater's relaunch, we handle it above
-      autoUpdater.quitAndInstall(true, false)
-    })
+    const zipPath = getZipPath()
+    const dotApp = process.execPath.indexOf('.app')
+
+    if (zipPath && dotApp !== -1) {
+      const appBundlePath = process.execPath.substring(0, dotApp + 4)
+      const appDir = dirname(appBundlePath)
+      const script = [
+        '#!/bin/bash',
+        'sleep 3',
+        `rm -rf "${appBundlePath}"`,
+        `unzip -oq "${zipPath}" -d "${appDir}"`,
+        `xattr -rd com.apple.quarantine "${appBundlePath}" 2>/dev/null || true`,
+        `open "${appBundlePath}"`,
+      ].join('\n')
+      const scriptPath = join(tmpdir(), 'roost-update.sh')
+      writeFileSync(scriptPath, script, { mode: 0o755 })
+      spawn('sh', [scriptPath], { detached: true, stdio: 'ignore' }).unref()
+      app.quit()
+    } else {
+      // Fallback for non-macOS or missing zip path
+      setImmediate(() => autoUpdater.quitAndInstall(true, true))
+    }
   })
 }

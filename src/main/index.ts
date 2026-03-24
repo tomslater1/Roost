@@ -20,6 +20,11 @@ app.setAsDefaultProtocolClient('roost')
 // Hold a reference to the main window so we can send IPC messages to it.
 let mainWindow: BrowserWindow | null = null
 
+// Path to the zip downloaded by electron-updater. Captured in update-downloaded so
+// the IPC install handler can apply it manually (bypassing Squirrel.Mac, which
+// refuses unsigned apps).
+let downloadedZipPath: string | null = null
+
 // If a deep link arrives before the window is ready, queue it here.
 let pendingDeepLink: string | null = null
 
@@ -63,6 +68,7 @@ autoUpdater.on('download-progress', (progress) => {
 })
 
 autoUpdater.on('update-downloaded', (info) => {
+  downloadedZipPath = (info as any).downloadedFile ?? null
   mainWindow?.webContents.send('updater:status', { status: 'downloaded', version: info.version })
 })
 
@@ -157,6 +163,6 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
-  registerIpcHandlers()
+  registerIpcHandlers(() => downloadedZipPath)
   createWindow()
 })
