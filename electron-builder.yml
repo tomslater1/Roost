@@ -18,7 +18,7 @@ publish:
   provider: github
   owner: tomslater1
   repo: roost
-  releaseType: release
+  releaseType: draft
 mac:
   icon: resources/icon.icns
   target:

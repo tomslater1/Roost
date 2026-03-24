@@ -205,8 +205,64 @@ Up to this point, Roost has been running on a shared Supabase project that I man
 
 - [x] Implement `electron-updater` with a GitHub Releases update server
 - [ ] Sign the app with a Developer ID certificate (required for Gatekeeper, even without App Store)
-- [ ] Set up a proper release pipeline (tag → build → sign → upload to GitHub Releases)
+- [x] **Set up a proper release pipeline** — See full process below.
 - [ ] Write a privacy policy (required for App Store and good practice)
+
+---
+
+## 🚀 Release Pipeline
+
+*How a new version of Roost goes from code to both Macs.*
+
+This pipeline is the source of truth for every release. No version ships without Thomas explicitly signing off.
+
+### How it works
+
+1. **CI builds the release as a draft.** Every push to a `v*` tag triggers GitHub Actions. The workflow builds the universal macOS DMG + zip, uploads all artifacts, and creates a **draft** GitHub Release. The draft is invisible to the auto-updater — `latest-mac.yml` only updates when a release is published.
+
+2. **Thomas reviews and publishes.** Open [github.com/tomslater1/Roost/releases](https://github.com/tomslater1/Roost/releases), find the draft, and verify: the DMG downloads and opens, the build looks right. When happy, click **"Publish release"**. That is the sign-off. Nothing goes live without it.
+
+3. **Auto-updater picks it up.** Within 5 seconds of the next app launch on either Mac, `electron-updater` sees the new `latest-mac.yml` and shows the update banner. The user downloads and restarts. Done.
+
+### Steps for every release
+
+```
+1. Finish the work — all commits on main, typecheck passing
+2. Bump version in package.json  (e.g. "1.0.11" → "1.1.0")
+3. Update the session log in NORTH_STAR.md
+4. git add . && git commit -m "Release v1.x.x"
+5. git push origin main
+6. git tag v1.x.x && git push origin v1.x.x
+7. Wait ~8 minutes for GitHub Actions to finish
+8. Open github.com/tomslater1/Roost/releases
+9. Review the draft release — download the DMG, confirm it opens
+10. Click "Publish release"  ← Thomas's sign-off
+11. Both Macs will show the update banner on next launch
+```
+
+### Version numbering
+
+- **Patch** (`1.0.x`) — bug fixes, invisible improvements, no new UI
+- **Minor** (`1.x.0`) — new features or meaningful UI changes
+- **Major** (`x.0.0`) — reserved for breaking changes or a major relaunch
+
+### What's automated (GitHub Actions)
+
+- Checkout, `npm ci`, `electron-vite build`, `electron-builder --publish always`
+- Secrets injected: `GH_TOKEN`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`
+- `CSC_IDENTITY_AUTO_DISCOVERY=false` — skips codesign (unsigned for now, see Phase 5)
+- Artifacts uploaded: `Roost.dmg`, `Roost-{version}-universal-mac.zip`, `latest-mac.yml`
+
+### What's NOT automated (by design)
+
+- **Publishing the release** — Thomas always does this manually. The draft gate ensures nothing goes to users without review.
+- **Version bump** — Intentional. Claude or Thomas bumps it explicitly per release so the version number is always a deliberate decision.
+
+### Current status
+
+Auto-update is live and working (v1.0.10+). The pipeline produces draft releases. Signing and notarisation are deferred to Phase 5 — the app currently bypasses Gatekeeper because both Macs already have it installed with trust established.
+
+---
 
 **Definition of done:**
 A friend who is not a developer can download the app, create an account, and invite their partner without asking me for help. Auto-update works. The app is signed and not blocked by Gatekeeper.

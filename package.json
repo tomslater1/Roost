@@ -1,6 +1,6 @@
 {
   "name": "roost",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Shared life dashboard for couples",
   "main": "./out/main/index.js",
   "author": "Thomas Slater",
