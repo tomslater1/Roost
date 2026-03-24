@@ -18,6 +18,7 @@ publish:
   provider: github
   owner: tomslater1
   repo: roost
+  releaseType: release
 mac:
   target:
     - target: dmg
