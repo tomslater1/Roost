@@ -84,8 +84,9 @@ export function registerIpcHandlers(): void {
   })
 
   // Quit and install the downloaded update.
-  // isSilent=false shows a progress dialog; isForceRunAfter=true relaunches the app.
+  // isSilent=true skips any native install dialog (required for unsigned macOS apps).
+  // isForceRunAfter=true relaunches the app after install.
   ipcMain.handle('updater:install', () => {
-    autoUpdater.quitAndInstall(false, true)
+    autoUpdater.quitAndInstall(true, true)
   })
 }
