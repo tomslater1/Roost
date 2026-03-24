@@ -20,6 +20,7 @@ publish:
   repo: roost
   releaseType: release
 mac:
+  icon: resources/icon.icns
   target:
     - target: dmg
       arch: universal
