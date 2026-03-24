@@ -1,0 +1,271 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Typography */
+  --font-size: 16px;
+  --font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  
+  /* Warm, earthy color palette inspired by cozy homes */
+  --background: #ebe3d5;  /* Much warmer, noticeably cream */
+  --foreground: #3d3229;  /* Warm dark brown instead of black */
+  
+  --card: #f2ebe0;  /* Very creamy off-white, not white at all */
+  --card-foreground: #3d3229;
+  
+  --popover: #f2ebe0;  /* Very creamy off-white */
+  --popover-foreground: #3d3229;
+  
+  /* Primary: Warm terracotta/coral */
+  --primary: #d4795e;
+  --primary-foreground: #f2ebe0;  /* Use cream instead of white */
+  
+  /* Secondary: Soft sage green */
+  --secondary: #9db19f;
+  --secondary-foreground: #3d3229;
+  
+  /* Muted: Warm neutral tones */
+  --muted: #ddd4c6;
+  --muted-foreground: #6b6157;
+  
+  /* Accent: Warm peachy-amber */
+  --accent: #e8d5bc;
+  --accent-foreground: #3d3229;
+  
+  --destructive: #c75146;
+  --destructive-foreground: #f2ebe0;  /* Use cream instead of white */
+  
+  /* Success/positive states */
+  --success: #7fa087;  /* Forest green from chart */
+  --success-foreground: #f2ebe0;
+  
+  /* Warning states */
+  --warning: #e6a563;  /* Warm amber from chart */
+  --warning-foreground: #3d3229;
+  
+  /* Info states */
+  --info: #9db19f;  /* Sage from secondary */
+  --info-foreground: #3d3229;
+  
+  /* Borders: Softer, warmer */
+  --border: rgba(61, 50, 41, 0.15);
+  
+  /* Inputs */
+  --input: transparent;
+  --input-background: #e3d9ca;
+  --switch-background: #c9c2b8;
+  
+  /* Font weights - keeping it soft */
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  
+  --ring: rgba(212, 121, 94, 0.3);
+  
+  /* Chart colors - warm earthy tones */
+  --chart-1: #d4795e;  /* Terracotta */
+  --chart-2: #9db19f;  /* Sage */
+  --chart-3: #e6a563;  /* Warm amber */
+  --chart-4: #b88b7e;  /* Clay pink */
+  --chart-5: #7fa087;  /* Forest green */
+  
+  /* Increased border radius for softer feel */
+  --radius: 0.875rem;
+  
+  /* Sidebar: Slightly darker cream for depth */
+  --sidebar: #e0d7c8;
+  --sidebar-foreground: #3d3229;
+  --sidebar-primary: #d4795e;
+  --sidebar-primary-foreground: #f2ebe0;  /* Use cream instead of white */
+  --sidebar-accent: #ddd4c6;
+  --sidebar-accent-foreground: #3d3229;
+  --sidebar-border: rgba(61, 50, 41, 0.12);
+  --sidebar-ring: rgba(212, 121, 94, 0.3);
+}
+
+.dark {
+  /* Much darker charcoal with just a hint of warmth */
+  --background: #0f0d0b;  /* Very dark, almost black but slightly warm */
+  --foreground: #f2ebe0;  /* Warm cream text */
+  
+  --card: #1a1816;  /* Darker cards */
+  --card-foreground: #f2ebe0;
+  
+  --popover: #1a1816;  /* Darker popovers */
+  --popover-foreground: #f2ebe0;
+  
+  /* Primary: Slightly muted terracotta for dark mode */
+  --primary: #d4795e;
+  --primary-foreground: #f2ebe0;
+  
+  /* Secondary: Muted sage */
+  --secondary: #7a8c7c;
+  --secondary-foreground: #f2ebe0;
+  
+  /* Muted: Darker warm neutrals */
+  --muted: #2a2623;
+  --muted-foreground: #a39a8f;
+  
+  /* Accent: Darker warm tone */
+  --accent: #2a2623;
+  --accent-foreground: #f2ebe0;
+  
+  --destructive: #c75146;
+  --destructive-foreground: #f2ebe0;
+  
+  /* Success/positive states - darker for dark mode */
+  --success: #7fa087;
+  --success-foreground: #f2ebe0;
+  
+  /* Warning states - darker for dark mode */
+  --warning: #d9965a;
+  --warning-foreground: #f2ebe0;
+  
+  /* Info states - darker for dark mode */
+  --info: #9db19f;
+  --info-foreground: #f2ebe0;
+  
+  /* Borders: Subtle warm borders */
+  --border: rgba(242, 235, 224, 0.1);
+  
+  /* Inputs */
+  --input: transparent;
+  --input-background: #1f1c19;
+  --switch-background: #3a3530;
+  
+  --ring: rgba(212, 121, 94, 0.4);
+  
+  /* Chart colors - slightly muted for dark mode */
+  --chart-1: #d4795e;
+  --chart-2: #9db19f;
+  --chart-3: #e6a563;
+  --chart-4: #b88b7e;
+  --chart-5: #7fa087;
+  
+  /* Sidebar: Slightly lighter than background for depth */
+  --sidebar: #141210;
+  --sidebar-foreground: #f2ebe0;
+  --sidebar-primary: #d4795e;
+  --sidebar-primary-foreground: #f2ebe0;
+  --sidebar-accent: #2a2623;
+  --sidebar-accent-foreground: #f2ebe0;
+  --sidebar-border: rgba(242, 235, 224, 0.08);
+  --sidebar-ring: rgba(212, 121, 94, 0.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  /* Smooth transitions for theme changes */
+  *,
+  *::before,
+  *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: ease;
+    transition-duration: 0.2s;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+    font-family: var(--font-family);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}

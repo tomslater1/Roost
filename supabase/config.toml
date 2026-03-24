@@ -1,0 +1,8 @@
+project_id = "kfpjfhzgtejhzqdurkuu"
+
+# calendar-feed is a public endpoint — Apple Calendar makes unauthenticated GET
+# requests with no Authorization header. Authentication is handled inside the
+# function via the per-home calendar_token UUID query parameter, so JWT
+# verification at the gateway level is not needed (and would block Apple Calendar).
+[functions.calendar-feed]
+verify_jwt = false

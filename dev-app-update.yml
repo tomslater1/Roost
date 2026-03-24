@@ -1,0 +1,4 @@
+owner: tomslater1
+repo: roost
+provider: github
+updaterCacheDirName: roost-updater
