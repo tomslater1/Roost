@@ -2,6 +2,7 @@
 // The renderer calls these via window.api (defined in preload/index.ts).
 
 import { app, ipcMain, Notification, shell } from 'electron'
+import { spawn } from 'child_process'
 import { autoUpdater } from 'electron-updater'
 import { writeFileSync } from 'fs'
 import { tmpdir } from 'os'
@@ -87,8 +88,21 @@ export function registerIpcHandlers(): void {
   // isSilent=true skips any native install dialog (required for unsigned macOS apps).
   // isForceRunAfter=true relaunches the app after install.
   ipcMain.handle('updater:install', () => {
-    // Defer until after the IPC reply is flushed — calling quitAndInstall
-    // synchronously inside an ipcMain.handle can deadlock the quit on macOS.
-    setImmediate(() => autoUpdater.quitAndInstall(true, true))
+    setImmediate(() => {
+      // electron-updater's built-in relaunch (app.relaunch) doesn't work for
+      // unsigned macOS apps — the new binary is quarantined by Gatekeeper.
+      // Instead, spawn a detached `open` command that fires after the install
+      // completes, which macOS handles correctly for unsigned apps.
+      const dotApp = process.execPath.indexOf('.app')
+      if (dotApp !== -1) {
+        const appPath = process.execPath.substring(0, dotApp + 4)
+        spawn('sh', ['-c', `sleep 3 && open "${appPath}"`], {
+          detached: true,
+          stdio: 'ignore',
+        }).unref()
+      }
+      // isForceRunAfter=false: skip electron-updater's relaunch, we handle it above
+      autoUpdater.quitAndInstall(true, false)
+    })
   })
 }
