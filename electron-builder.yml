@@ -24,7 +24,6 @@ mac:
       arch: universal
     - target: zip
       arch: universal
-  entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSCameraUsageDescription: Application requests access to the device's camera.
     NSMicrophoneUsageDescription: Application requests access to the device's microphone.
