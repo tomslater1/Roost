@@ -14,6 +14,7 @@ interface Shortcut {
 
 const shortcuts: Shortcut[] = [
   { keys: ["?"], description: "Show keyboard shortcuts" },
+  { keys: ["Cmd/Ctrl", "K"], description: "Open search" },
   { keys: ["G", "D"], description: "Go to Dashboard" },
   { keys: ["G", "S"], description: "Go to Shopping" },
   { keys: ["G", "E"], description: "Go to Expenses" },
@@ -70,6 +71,13 @@ export function KeyboardShortcuts() {
       if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         setShowHelp(true);
+        clearChord();
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && key === "k") {
+        e.preventDefault();
+        window.dispatchEvent(new Event("roost:open-search"));
         clearChord();
         return;
       }

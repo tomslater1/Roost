@@ -99,6 +99,57 @@ export interface HazelResult {
   category?: string
 }
 
+export interface BudgetInsightInput {
+  monthLabel: string
+  totalSpent: number
+  totalBudget: number
+  projectedMonthEnd: number
+  remaining: number
+  overspend: number
+  topCategories: Array<{
+    name: string
+    spend: number
+    limit: number | null
+    pct: number
+    recurringTotal: number
+  }>
+}
+
+export interface BudgetInsights {
+  summary: string
+  outlook: string
+  focus: string[]
+}
+
+function buildBudgetInsightsPrompt(input: BudgetInsightInput): string {
+  return `You are helping explain a household budget for a UK couple in a warm, calm, non-judgemental voice.
+
+Month: ${input.monthLabel}
+Total spent: £${input.totalSpent.toFixed(2)}
+Total budget: £${input.totalBudget.toFixed(2)}
+Projected end of month spend: £${input.projectedMonthEnd.toFixed(2)}
+Remaining budget: £${input.remaining.toFixed(2)}
+Overspend so far: £${input.overspend.toFixed(2)}
+
+Top categories:
+${input.topCategories.map((c) => `- ${c.name}: spend £${c.spend.toFixed(2)}, limit ${c.limit === null ? 'none' : `£${c.limit.toFixed(2)}`}, used ${Math.round(c.pct)}%, recurring £${c.recurringTotal.toFixed(2)}`).join('\n')}
+
+Write:
+- one short summary sentence
+- one short outlook sentence
+- exactly 3 concise focus points
+
+Rules:
+- Be warm, calm, and useful
+- No scolding, no finance jargon, no corporate language
+- Be specific to the numbers provided
+- Keep each focus point under 12 words
+- Output JSON only
+
+Return exactly:
+{"summary":"...","outlook":"...","focus":["...","...","..."]}`
+}
+
 export async function suggestChores(existingChores: string[], month: string): Promise<string[]> {
   const ai = getClient()
   if (!ai) return []
@@ -181,5 +232,47 @@ export async function normalizeText(rawText: string, context: string, categories
   } catch {
     const plain = raw.replace(/^["']|["']$/g, '')
     return { text: plain || rawText }
+  }
+}
+
+export async function getBudgetInsights(input: BudgetInsightInput): Promise<BudgetInsights | null> {
+  const ai = getClient()
+  if (!ai) return null
+
+  const message = await ai.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 220,
+    system: HAZEL_SYSTEM,
+    messages: [
+      {
+        role: 'user',
+        content: buildBudgetInsightsPrompt(input),
+      },
+    ],
+  })
+
+  const block = message.content[0]
+  if (block.type !== 'text') return null
+
+  let raw = block.text.trim()
+  const fenced = raw.match(/```(?:\w+)?\s*([\s\S]*?)```/)
+  if (fenced) raw = fenced[1].trim()
+
+  try {
+    const parsed = JSON.parse(raw)
+    if (
+      typeof parsed.summary === 'string' &&
+      typeof parsed.outlook === 'string' &&
+      Array.isArray(parsed.focus)
+    ) {
+      return {
+        summary: parsed.summary.trim(),
+        outlook: parsed.outlook.trim(),
+        focus: parsed.focus.filter((item: unknown): item is string => typeof item === 'string').slice(0, 3),
+      }
+    }
+    return null
+  } catch {
+    return null
   }
 }

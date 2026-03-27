@@ -1,36 +1,71 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Receipt, TrendingUp, TrendingDown,
-  ArrowRight, Settings2, Repeat, User, Calendar as CalendarIcon,
+  AlertCircle,
+  ArrowRight,
+  ArrowUpRight,
+  BarChart3,
+  Brain,
+  Calendar as CalendarIcon,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  ListFilter,
+  PiggyBank,
+  Receipt,
+  Repeat,
+  Settings2,
+  Sparkles,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  User,
+  Wallet,
 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO, subMonths, isSameMonth } from "date-fns";
-import { motion, AnimatePresence } from "motion/react";
-import { Card, CardContent } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
-import { Progress } from "../components/ui/progress";
+import {
+  addMonths,
+  differenceInCalendarDays,
+  endOfMonth,
+  format,
+  getDaysInMonth,
+  isSameMonth,
+  isWithinInterval,
+  parseISO,
+  startOfMonth,
+  subMonths,
+} from "date-fns";
+import { AnimatePresence, motion } from "motion/react";
 import { AnimatedPage } from "../components/AnimatedPage";
+import { CategoryIcon } from "../components/CategoryIcon";
 import { EmptyState } from "../components/EmptyState";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
+import { Progress } from "../components/ui/progress";
 import { useBudget } from "@/hooks/useBudget";
 import { useExpenses } from "@/hooks/useExpenses";
-import { COLOR_CLASSES, getCategoryMeta } from "@/lib/categories";
-import type { Category } from "@/lib/categories";
-import { CategoryIcon } from "../components/CategoryIcon";
+import { COLOR_CLASSES, getCategoryMeta, type Category } from "@/lib/categories";
 import type { ExpenseWithSplits } from "@/lib/schemas/expenses";
 
-const ease = [0.43, 0.13, 0.23, 0.96] as const
-const spring = { type: "spring" as const, stiffness: 400, damping: 17 }
+const ease = [0.43, 0.13, 0.23, 0.96] as const;
+const spring = { type: "spring" as const, stiffness: 400, damping: 17 };
 
 interface CategoryRow {
-  category: Category
-  spend: number
-  limit: number | null
-  pct: number
-  isOver: boolean
-  budgetId?: string
-  monthExpenses: ExpenseWithSplits[]
-  recurringExpenses: ExpenseWithSplits[]
+  category: Category;
+  spend: number;
+  limit: number | null;
+  pct: number;
+  isOver: boolean;
+  budgetId?: string;
+  monthExpenses: ExpenseWithSplits[];
+  recurringExpenses: ExpenseWithSplits[];
+}
+
+interface HazelBudgetInsight {
+  summary: string;
+  outlook: string;
+  focus: string[];
 }
 
 export function Budget() {
@@ -39,40 +74,46 @@ export function Budget() {
   const budgetHook = useBudget({ expenses: expensesHook.expenses });
 
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"analytics" | "categories">("analytics");
+  const [hazelInsight, setHazelInsight] = useState<HazelBudgetInsight | null>(null);
+  const [hazelLoading, setHazelLoading] = useState(false);
 
   const isLoading = budgetHook.isLoading || expensesHook.isLoading;
 
   const monthStart = startOfMonth(budgetHook.selectedMonth);
   const monthEnd = endOfMonth(budgetHook.selectedMonth);
   const monthKey = format(monthStart, "yyyy-MM-dd");
-
-  // Last month for comparison
   const lastMonthStart = startOfMonth(subMonths(budgetHook.selectedMonth, 1));
   const lastMonthEnd = endOfMonth(subMonths(budgetHook.selectedMonth, 1));
 
-  // Expenses for selected month
-  const monthExpenses = useMemo(() =>
-    expensesHook.expenses.filter((e) => {
-      try { return isWithinInterval(parseISO(e.date), { start: monthStart, end: monthEnd }) }
-      catch { return false }
-    }),
+  const monthExpenses = useMemo(
+    () =>
+      expensesHook.expenses.filter((e) => {
+        try {
+          return isWithinInterval(parseISO(e.date), { start: monthStart, end: monthEnd });
+        } catch {
+          return false;
+        }
+      }),
     [expensesHook.expenses, monthStart, monthEnd]
   );
 
-  // Expenses for last month (for trend)
-  const lastMonthExpenses = useMemo(() =>
-    expensesHook.expenses.filter((e) => {
-      try { return isWithinInterval(parseISO(e.date), { start: lastMonthStart, end: lastMonthEnd }) }
-      catch { return false }
-    }),
+  const lastMonthExpenses = useMemo(
+    () =>
+      expensesHook.expenses.filter((e) => {
+        try {
+          return isWithinInterval(parseISO(e.date), { start: lastMonthStart, end: lastMonthEnd });
+        } catch {
+          return false;
+        }
+      }),
     [expensesHook.expenses, lastMonthStart, lastMonthEnd]
   );
 
-  const totalThisMonth = monthExpenses.reduce((s, e) => s + Number(e.amount), 0);
-  const totalLastMonth = lastMonthExpenses.reduce((s, e) => s + Number(e.amount), 0);
+  const totalThisMonth = monthExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalLastMonth = lastMonthExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const monthTrend = totalLastMonth > 0 ? ((totalThisMonth - totalLastMonth) / totalLastMonth) * 100 : null;
 
-  // All category rows — built-ins + custom, always shown
   const allRows: CategoryRow[] = useMemo(() => {
     const limitsForMonth: Record<string, { amount: number; id: string }> = {};
     for (const b of budgetHook.rawBudgets) {
@@ -84,13 +125,12 @@ export function Budget() {
 
     const rows: CategoryRow[] = allCats.map((cat) => {
       const catExpenses = monthExpenses.filter((e) => e.category === cat.name);
-      const spend = catExpenses.reduce((s, e) => s + Number(e.amount), 0);
+      const spend = catExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
       const limitEntry = limitsForMonth[cat.name];
       const limit = limitEntry?.amount ?? null;
       const pct = limit ? Math.min((spend / limit) * 100, 100) : 0;
-      const recurring = expensesHook.expenses.filter(
-        (e) => e.is_recurring && e.category === cat.name
-      );
+      const recurring = expensesHook.expenses.filter((e) => e.is_recurring && e.category === cat.name);
+
       return {
         category: cat,
         spend,
@@ -103,14 +143,15 @@ export function Budget() {
       };
     });
 
-    // Safety net: include any expenses whose category isn't in allCategories (e.g. historical data).
     const orphanedSpend: Record<string, number> = {};
     const orphanedExpenses: Record<string, ExpenseWithSplits[]> = {};
+
     for (const e of monthExpenses) {
       if (!e.category || seenNames.has(e.category)) continue;
       orphanedSpend[e.category] = (orphanedSpend[e.category] ?? 0) + Number(e.amount);
       orphanedExpenses[e.category] = [...(orphanedExpenses[e.category] ?? []), e];
     }
+
     for (const [name, spend] of Object.entries(orphanedSpend)) {
       const limitEntry = limitsForMonth[name];
       const limit = limitEntry?.amount ?? null;
@@ -128,80 +169,331 @@ export function Budget() {
     }
 
     return rows;
-  }, [budgetHook.allCategories, budgetHook.rawBudgets, monthExpenses, expensesHook.expenses, monthKey]);
+  }, [budgetHook.allCategories, budgetHook.rawBudgets, expensesHook.expenses, monthExpenses, monthKey]);
 
-  // Sort: categories with spend first (desc), then empty
-  const sortedRows = useMemo(() => [
-    ...allRows.filter((r) => r.spend > 0).sort((a, b) => b.spend - a.spend),
-    ...allRows.filter((r) => r.spend === 0),
-  ], [allRows]);
+  const sortedRows = useMemo(
+    () => [
+      ...allRows.filter((r) => r.spend > 0).sort((a, b) => b.spend - a.spend),
+      ...allRows.filter((r) => r.spend === 0),
+    ],
+    [allRows]
+  );
 
-  const activeCategories = allRows.filter((r) => r.spend > 0).length;
+  const totalBudget = budgetHook.summary?.totalBudget ?? 0;
+  const totalPct = budgetHook.summary?.totalPct ?? 0;
+  const remaining = Math.max(totalBudget - totalThisMonth, 0);
+  const overspend = Math.max(totalThisMonth - totalBudget, 0);
 
-  const memberName = (userId: string) =>
-    expensesHook.members.find((m) => m.user_id === userId)?.display_name ?? "Someone";
+  const elapsedDays = useMemo(() => {
+    if (!isSameMonth(budgetHook.selectedMonth, new Date())) return getDaysInMonth(budgetHook.selectedMonth);
+    return Math.max(differenceInCalendarDays(new Date(), monthStart) + 1, 1);
+  }, [budgetHook.selectedMonth, monthStart]);
+
+  const daysInMonth = getDaysInMonth(budgetHook.selectedMonth);
+  const projectedMonthEnd = elapsedDays > 0 ? (totalThisMonth / elapsedDays) * daysInMonth : totalThisMonth;
+  const projectedDelta = totalBudget > 0 ? projectedMonthEnd - totalBudget : 0;
+
+  const budgetedRows = useMemo(() => sortedRows.filter((row) => row.limit !== null), [sortedRows]);
+  const overBudgetRows = useMemo(
+    () => budgetedRows.filter((row) => row.isOver).sort((a, b) => (b.spend - (b.limit ?? 0)) - (a.spend - (a.limit ?? 0))),
+    [budgetedRows]
+  );
+  const closeToLimitRows = useMemo(
+    () => budgetedRows.filter((row) => !row.isOver && row.limit !== null && row.pct >= 80).sort((a, b) => b.pct - a.pct),
+    [budgetedRows]
+  );
+  const topSpendingRow = useMemo(
+    () => [...sortedRows].filter((row) => row.spend > 0).sort((a, b) => b.spend - a.spend)[0] ?? null,
+    [sortedRows]
+  );
+  const recurringCommitments = useMemo(
+    () =>
+      sortedRows
+        .map((row) => ({ row, recurringTotal: row.recurringExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0) }))
+        .filter((entry) => entry.recurringTotal > 0)
+        .sort((a, b) => b.recurringTotal - a.recurringTotal),
+    [sortedRows]
+  );
+
+  const tone = totalBudget <= 0 ? "neutral" : totalThisMonth > totalBudget ? "over" : totalPct >= 80 ? "close" : "healthy";
+  const toneClasses = {
+    neutral: "bg-card border-border",
+    healthy: "bg-success/8 border-success/25",
+    close: "bg-warning/8 border-warning/30",
+    over: "bg-destructive/8 border-destructive/30",
+  } as const;
+
+  const paceLabel =
+    totalBudget <= 0
+      ? "Set monthly limits to see household pacing."
+      : overspend > 0
+        ? `You're £${overspend.toFixed(2)} over the shared plan so far.`
+        : remaining === 0
+          ? "You've used the full budget for this month."
+          : `£${remaining.toFixed(2)} left across the month.`;
+
+  const forecastLabel =
+    totalBudget <= 0
+      ? "Add category limits to unlock end-of-month forecasting."
+      : projectedDelta > 0
+        ? `On pace to land about £${projectedDelta.toFixed(0)} over budget.`
+        : `On pace to finish about £${Math.abs(projectedDelta).toFixed(0)} under budget.`;
+
+  const biggestChangeLabel = topSpendingRow
+    ? `${topSpendingRow.category.name} is your biggest spend area this month.`
+    : "Once you log expenses, your pressure points will appear here.";
+
+  const analyticsTopCategories = useMemo(
+    () =>
+      sortedRows
+        .filter((row) => row.spend > 0)
+        .slice(0, 5)
+        .map((row) => ({
+          ...row,
+          recurringTotal: row.recurringExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0),
+        })),
+    [sortedRows]
+  );
+
+  const monthlyTrendData = useMemo(() => {
+    return Array.from({ length: 6 }, (_, index) => {
+      const date = addMonths(budgetHook.selectedMonth, index - 5);
+      const start = startOfMonth(date);
+      const end = endOfMonth(date);
+      const spend = expensesHook.expenses.reduce((sum, expense) => {
+        try {
+          const parsed = parseISO(expense.date);
+          return isWithinInterval(parsed, { start, end }) ? sum + Number(expense.amount) : sum;
+        } catch {
+          return sum;
+        }
+      }, 0);
+      const budget = budgetHook.rawBudgets
+        .filter((b) => b.month === format(start, "yyyy-MM-dd"))
+        .reduce((sum, b) => sum + Number(b.amount), 0);
+
+      return { label: format(date, "MMM"), spend, budget };
+    });
+  }, [budgetHook.rawBudgets, budgetHook.selectedMonth, expensesHook.expenses]);
+
+  // Stable fingerprint of the data that Hazel cares about.
+  // Only changes when the month, totals, or top-category spend actually changes.
+  const hazelKey = `hazel-budget|${format(budgetHook.selectedMonth, "yyyy-MM")}|${totalThisMonth.toFixed(2)}|${totalBudget.toFixed(2)}|${analyticsTopCategories.map((r) => r.category.name + r.spend.toFixed(2)).join(",")}`;
+
+  useEffect(() => {
+    if (activeTab !== "analytics" || isLoading || analyticsTopCategories.length === 0) {
+      setHazelInsight(null);
+      return;
+    }
+
+    // Check localStorage cache first — avoids a Claude API call if nothing has changed.
+    try {
+      const cached = localStorage.getItem(hazelKey);
+      if (cached) {
+        const parsed = JSON.parse(cached) as HazelBudgetInsight;
+        if (parsed.summary && parsed.outlook && Array.isArray(parsed.focus)) {
+          setHazelInsight(parsed);
+          setHazelLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // Corrupt cache entry — fall through to a fresh API call.
+    }
+
+    let cancelled = false;
+    setHazelLoading(true);
+
+    window.api
+      .budgetInsights({
+        monthLabel: format(budgetHook.selectedMonth, "MMMM yyyy"),
+        totalSpent: totalThisMonth,
+        totalBudget,
+        projectedMonthEnd,
+        remaining,
+        overspend,
+        topCategories: analyticsTopCategories.map((row) => ({
+          name: row.category.name,
+          spend: row.spend,
+          limit: row.limit,
+          pct: row.pct,
+          recurringTotal: row.recurringTotal,
+        })),
+      })
+      .then((result) => {
+        if (!cancelled && result) {
+          // Persist to localStorage so re-opening the page doesn't re-call Claude.
+          // Prune old Hazel budget cache entries to keep localStorage tidy.
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k && k.startsWith("hazel-budget|") && k !== hazelKey) {
+                localStorage.removeItem(k);
+              }
+            }
+            localStorage.setItem(hazelKey, JSON.stringify(result));
+          } catch {
+            // localStorage full or unavailable — not critical.
+          }
+          setHazelInsight(result);
+        } else if (!cancelled) {
+          setHazelInsight(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setHazelInsight(null);
+      })
+      .finally(() => {
+        if (!cancelled) setHazelLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hazelKey, activeTab, isLoading]);
+
+  const maxTrendValue = Math.max(...monthlyTrendData.flatMap((item) => [item.spend, item.budget]), 1);
+  const maxCategorySpend = Math.max(...analyticsTopCategories.map((row) => row.spend), 1);
+
+  const memberName = (userId: string) => expensesHook.members.find((m) => m.user_id === userId)?.display_name ?? "Someone";
 
   return (
-    <>
-      <AnimatedPage className="max-w-6xl mx-auto p-6 space-y-5">
+    <AnimatedPage className="max-w-6xl mx-auto p-6 space-y-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold mb-1.5">Budget</h1>
+          <p className="text-muted-foreground">
+            {isSameMonth(budgetHook.selectedMonth, new Date())
+              ? "A calmer read on your household spending this month"
+              : `Household budget view for ${format(budgetHook.selectedMonth, "MMMM yyyy")}`}
+          </p>
+        </div>
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={spring}>
+          <Button variant="outline" className="gap-2" onClick={() => navigate("/settings/budget-categories")}>
+            <Settings2 className="w-4 h-4" />
+            Manage limits
+          </Button>
+        </motion.div>
+      </div>
 
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold mb-1.5">Budget</h1>
-            <p className="text-muted-foreground">
-              {isSameMonth(budgetHook.selectedMonth, new Date())
-                ? "How you're spending this month"
-                : `Spending breakdown for ${format(budgetHook.selectedMonth, "MMMM yyyy")}`}
-            </p>
-          </div>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={spring}>
-            <Button variant="outline" className="gap-2" onClick={() => navigate("/settings/budget-categories")}>
-              <Settings2 className="w-4 h-4" />
-              Manage limits
-            </Button>
+      <div className="flex items-center justify-center gap-4">
+        <Button variant="ghost" size="icon" onClick={budgetHook.prevMonth}>
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        <div className="text-center">
+          <h2 className="text-lg font-medium min-w-[180px]">{format(budgetHook.selectedMonth, "MMMM yyyy")}</h2>
+          <p className="text-xs text-muted-foreground">
+            {budgetHook.monthsAhead > 0 ? `${budgetHook.monthsAhead} month${budgetHook.monthsAhead === 1 ? "" : "s"} ahead` : "Current or past month"}
+          </p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={budgetHook.nextMonth} disabled={!budgetHook.canGoForward}>
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-center">
+        <div className="inline-flex gap-1 rounded-2xl border border-border/70 bg-muted/35 p-1">
+          {[
+            { value: "analytics", label: "Analytics", icon: BarChart3 },
+            { value: "categories", label: "Categories", icon: ListFilter },
+          ].map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setActiveTab(value as "analytics" | "categories")}
+              className={[
+                "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm transition-colors",
+                activeTab === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              ].join(" ")}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === "analytics" && !isLoading && (
+        <>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.02, ease }}>
+            <Card className={toneClasses[tone]}>
+              <CardContent className="p-6">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-4 max-w-2xl">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary" className="gap-1.5 px-2.5 py-1 bg-primary/10 text-primary border border-primary/15 hover:bg-primary/10">
+                        <PiggyBank className="w-3.5 h-3.5" />
+                        Household overview
+                      </Badge>
+                      {totalBudget > 0 && (
+                        <Badge
+                          variant="secondary"
+                          className={[
+                            "px-2.5 py-1 border hover:bg-transparent",
+                            tone === "healthy" && "bg-success/10 text-success border-success/20",
+                            tone === "close" && "bg-warning/10 text-warning border-warning/20",
+                            tone === "over" && "bg-destructive/10 text-destructive border-destructive/20",
+                          ].filter(Boolean).join(" ")}
+                        >
+                          {tone === "healthy" ? "Comfortable" : tone === "close" ? "Getting close" : "Over budget"}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div>
+                      <h2 className="text-3xl font-semibold tracking-tight mb-1.5">
+                        {totalBudget > 0 ? `£${totalThisMonth.toFixed(2)} of £${totalBudget.toFixed(2)}` : `£${totalThisMonth.toFixed(2)} spent this month`}
+                      </h2>
+                      <p className="text-sm text-muted-foreground max-w-xl">{paceLabel}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Month progress</span>
+                        <span>{`${elapsedDays}/${daysInMonth} days`}</span>
+                      </div>
+                      <Progress
+                        value={totalBudget > 0 ? totalPct : Math.min((elapsedDays / daysInMonth) * 100, 100)}
+                        className={[
+                          "h-2.5",
+                          tone === "healthy" && "[&>div]:bg-[#7fa087]",
+                          tone === "close" && "[&>div]:bg-[#e6a563]",
+                          tone === "over" && "[&>div]:bg-[#c75146]",
+                          tone === "neutral" && "[&>div]:bg-primary",
+                        ].filter(Boolean).join(" ")}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-full lg:min-w-[360px] lg:max-w-[420px]">
+                    {[
+                      { label: totalBudget > 0 ? "Remaining" : "Budgeted", value: totalBudget > 0 ? `£${remaining.toFixed(2)}` : "£0.00", sub: totalBudget > 0 ? "Left in plan" : "No limits set yet", icon: Wallet },
+                      { label: "Forecast", value: `£${projectedMonthEnd.toFixed(0)}`, sub: totalBudget > 0 ? (projectedDelta > 0 ? "Projected finish" : "Expected month-end") : "Current pace", icon: ArrowUpRight },
+                      { label: "Categories under watch", value: String(overBudgetRows.length + closeToLimitRows.length), sub: overBudgetRows.length > 0 ? `${overBudgetRows.length} over limit` : "Nothing alarming", icon: AlertCircle },
+                    ].map(({ label, value, sub, icon: Icon }) => (
+                      <div key={label} className="rounded-2xl border border-border/60 bg-background/60 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <p className="text-xl font-semibold mb-1">{value}</p>
+                        <p className="text-xs text-muted-foreground">{sub}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </motion.div>
-        </div>
 
-        {/* Month navigation */}
-        <div className="flex items-center justify-center gap-4">
-          <Button variant="ghost" size="icon" onClick={budgetHook.prevMonth}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <h2 className="text-lg font-medium min-w-[180px] text-center">
-            {format(budgetHook.selectedMonth, "MMMM yyyy")}
-          </h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={budgetHook.nextMonth}
-            disabled={budgetHook.isCurrentMonth}
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-
-        {/* Stats */}
-        {!isLoading && (
           <div className="grid grid-cols-3 gap-3">
             {[
-              {
-                label: "Total spent",
-                value: `£${totalThisMonth.toFixed(2)}`,
-                sub: `Shared & personal · ${monthExpenses.length} ${monthExpenses.length === 1 ? "expense" : "expenses"}`,
-                icon: Receipt,
-                iconBg: "bg-primary/10",
-                iconColor: "text-primary",
-                delay: 0.02,
-              },
+              { label: "Total spent", value: `£${totalThisMonth.toFixed(2)}`, sub: `Shared & personal · ${monthExpenses.length} ${monthExpenses.length === 1 ? "expense" : "expenses"}`, icon: Receipt, iconBg: "bg-primary/10", iconColor: "text-primary", delay: 0.02 },
               {
                 label: "vs last month",
                 value: monthTrend !== null ? `${monthTrend > 0 ? "+" : ""}${monthTrend.toFixed(0)}%` : "—",
-                sub: monthTrend !== null
-                  ? monthTrend > 0
-                    ? `£${(totalThisMonth - totalLastMonth).toFixed(2)} more`
-                    : `£${(totalLastMonth - totalThisMonth).toFixed(2)} less`
-                  : "No prior data",
+                sub: monthTrend !== null ? (monthTrend > 0 ? `£${(totalThisMonth - totalLastMonth).toFixed(2)} more` : `£${(totalLastMonth - totalThisMonth).toFixed(2)} less`) : "No prior data",
                 icon: monthTrend !== null && monthTrend > 0 ? TrendingUp : TrendingDown,
                 iconBg: monthTrend !== null && monthTrend > 10 ? "bg-destructive/10" : monthTrend !== null && monthTrend < -10 ? "bg-success/10" : "bg-muted",
                 iconColor: monthTrend !== null && monthTrend > 10 ? "text-destructive" : monthTrend !== null && monthTrend < -10 ? "text-success" : "text-muted-foreground",
@@ -210,20 +502,16 @@ export function Budget() {
                 delay: 0.08,
               },
               {
-                label: "Active categories",
-                value: String(activeCategories),
-                sub: `of ${allRows.length} categories used`,
-                icon: Receipt,
+                label: "Recurring commitments",
+                value: `£${recurringCommitments.reduce((sum, item) => sum + item.recurringTotal, 0).toFixed(0)}`,
+                sub: recurringCommitments.length > 0 ? `${recurringCommitments.length} ${recurringCommitments.length === 1 ? "category carries forward" : "categories carry forward"}` : "No recurring costs tagged",
+                icon: Repeat,
                 iconBg: "bg-muted",
                 iconColor: "text-muted-foreground",
                 delay: 0.14,
               },
             ].map(({ label, value, sub, icon: Icon, iconBg, iconColor, valueColor, cardCls, delay }) => (
-              <motion.div
-                key={label}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay, ease }}
-              >
+              <motion.div key={label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay, ease }}>
                 <Card className={cardCls ?? ""}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-3">
@@ -239,12 +527,172 @@ export function Budget() {
               </motion.div>
             ))}
           </div>
-        )}
 
-        {/* Category pills */}
-        {isLoading ? (
+          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <Card>
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-3 mb-5">
+                  <div>
+                    <h3 className="font-medium mb-1">Six-month spend rhythm</h3>
+                    <p className="text-sm text-muted-foreground">A simple view of how spending and limits are moving around this month.</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-muted/50 text-muted-foreground hover:bg-muted/50">last 6 months</Badge>
+                </div>
+                <div className="grid grid-cols-6 gap-3 items-end h-56">
+                  {monthlyTrendData.map((item) => (
+                    <div key={item.label} className="flex flex-col items-center gap-2 h-full justify-end">
+                      <div className="flex items-end gap-1.5 h-full w-full justify-center">
+                        <div className="w-4 rounded-t-xl bg-primary/80 min-h-[8px]" style={{ height: `${Math.max((item.spend / maxTrendValue) * 100, item.spend > 0 ? 8 : 0)}%` }} />
+                        <div className="w-4 rounded-t-xl bg-secondary/60 min-h-[8px]" style={{ height: `${Math.max((item.budget / maxTrendValue) * 100, item.budget > 0 ? 8 : 0)}%` }} />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs font-medium">{item.label}</p>
+                        <p className="text-[11px] text-muted-foreground">£{item.spend.toFixed(0)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-primary/80" />Spent</span>
+                  <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-secondary/60" />Budgeted</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-primary" />
+                  <h3 className="font-medium">Hazel’s forecast</h3>
+                </div>
+                {hazelLoading ? (
+                  <div className="space-y-2">
+                    <div className="h-4 rounded-full bg-muted animate-pulse w-4/5" />
+                    <div className="h-4 rounded-full bg-muted animate-pulse w-3/4" />
+                    <div className="h-20 rounded-2xl bg-muted/40 animate-pulse" />
+                  </div>
+                ) : hazelInsight ? (
+                  <>
+                    <div className="rounded-2xl bg-primary/6 border border-primary/10 px-4 py-3.5">
+                      <p className="text-sm leading-6">{hazelInsight.summary}</p>
+                    </div>
+                    <div className="rounded-2xl bg-muted/35 px-4 py-3.5">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Outlook</p>
+                      <p className="text-sm leading-6">{hazelInsight.outlook}</p>
+                    </div>
+                    <div className="space-y-2">
+                      {hazelInsight.focus.map((item) => (
+                        <div key={item} className="flex items-center gap-2 rounded-xl bg-background/70 border border-border/60 px-3 py-2.5">
+                          <CircleHelp className="w-3.5 h-3.5 text-primary" />
+                          <p className="text-sm">{item}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Hazel will offer a forecast once there’s enough budget shape to read.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-medium mb-1">This month, in plain English</h3>
+                    <p className="text-sm text-muted-foreground">A calmer read on how the household is tracking — built on top of your existing expenses and limits.</p>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </div>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  {[
+                    { title: "Pacing", body: forecastLabel },
+                    { title: "Biggest pressure", body: biggestChangeLabel },
+                    { title: "Coverage", body: totalBudget > 0 ? `${budgetedRows.length} ${budgetedRows.length === 1 ? "category has a limit" : "categories have limits"} this month.` : "No category limits yet — the page is showing spending only." },
+                  ].map((item) => (
+                    <div key={item.title} className="rounded-2xl bg-muted/35 px-4 py-3.5">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1.5">{item.title}</p>
+                      <p className="text-sm leading-6">{item.body}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-primary" />
+                  <h3 className="font-medium">Needs attention</h3>
+                </div>
+                {overBudgetRows.length === 0 && closeToLimitRows.length === 0 ? (
+                  <div className="rounded-2xl bg-success/8 border border-success/20 px-4 py-4">
+                    <p className="text-sm font-medium text-success mb-1">Nothing urgent right now</p>
+                    <p className="text-sm text-muted-foreground">Your tracked categories are sitting comfortably within the month so far.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {[...overBudgetRows.slice(0, 2), ...closeToLimitRows.slice(0, Math.max(0, 3 - overBudgetRows.length))].map((row) => (
+                      <div key={row.category.name} className="rounded-2xl border border-border/60 bg-muted/30 px-4 py-3">
+                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                          <p className="text-sm font-medium">{row.category.name}</p>
+                          <Badge
+                            variant="secondary"
+                            className={row.isOver ? "bg-destructive/10 text-destructive border border-destructive/15 hover:bg-destructive/10" : "bg-warning/10 text-warning border border-warning/15 hover:bg-warning/10"}
+                          >
+                            {row.isOver ? "Over" : "Close"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          £{row.spend.toFixed(2)} spent{row.limit !== null ? ` of £${row.limit.toFixed(2)}` : ""}
+                          {row.isOver ? ` · £${(row.spend - (row.limit ?? 0)).toFixed(2)} over` : row.limit !== null ? ` · ${Math.round(row.pct)}% used` : ""}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-3 mb-5">
+                <div>
+                  <h3 className="font-medium mb-1">Top categories this month</h3>
+                  <p className="text-sm text-muted-foreground">The biggest spend areas in the month you’re exploring, including future planning months.</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {analyticsTopCategories.map((row) => (
+                  <div key={row.category.name} className="grid grid-cols-[140px_1fr_auto] gap-3 items-center">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{row.category.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{row.limit !== null ? `£${row.limit.toFixed(0)} limit` : "No limit set"}</p>
+                    </div>
+                    <div className="h-3 rounded-full bg-muted overflow-hidden">
+                      <div className={`h-full rounded-full ${row.isOver ? "bg-destructive" : row.pct >= 80 ? "bg-warning" : "bg-primary"}`} style={{ width: `${Math.max((row.spend / maxCategorySpend) * 100, 6)}%` }} />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">£{row.spend.toFixed(0)}</p>
+                      <p className="text-[11px] text-muted-foreground">{row.recurringTotal > 0 ? `£${row.recurringTotal.toFixed(0)} recurring` : "one-off mix"}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {activeTab === "categories" &&
+        (isLoading ? (
           <div className="space-y-2">
-            {[...Array(6)].map((_, i) => (
+            {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-[68px] rounded-2xl bg-muted/40 animate-pulse" />
             ))}
           </div>
@@ -254,7 +702,7 @@ export function Budget() {
               <EmptyState
                 icon={Receipt}
                 title="No spending yet"
-                description="Add expenses and they'll show up here, grouped by category."
+                description="Add expenses and they’ll show up here, grouped by category."
                 action={{ label: "Go to Expenses", onClick: () => navigate("/expenses") }}
               />
             </CardContent>
@@ -267,13 +715,7 @@ export function Budget() {
               const isExpanded = expandedCategory === row.category.name;
 
               return (
-                <motion.div
-                  key={row.category.name}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.28, delay: 0.03 + i * 0.03, ease }}
-                  layout="position"
-                >
+                <motion.div key={row.category.name} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28, delay: 0.03 + i * 0.03, ease }} layout="position">
                   <motion.div
                     layout
                     className={[
@@ -283,7 +725,6 @@ export function Budget() {
                       row.isOver ? "border-destructive/30 bg-destructive/5" : "bg-card",
                     ].join(" ")}
                   >
-                    {/* Pill header — always visible */}
                     <button
                       type="button"
                       onClick={() => !isEmpty && setExpandedCategory(isExpanded ? null : row.category.name)}
@@ -294,68 +735,65 @@ export function Budget() {
                         isEmpty ? "cursor-default" : "cursor-pointer",
                       ].join(" ")}
                     >
-                      {/* Category icon */}
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                        row.isOver ? "bg-destructive/10" : colors.bg
-                      }`}>
-                        <CategoryIcon
-                          category={row.category}
-                          className={`w-5 h-5 ${row.isOver ? "text-destructive" : colors.text}`}
-                        />
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${row.isOver ? "bg-destructive/10" : colors.bg}`}>
+                        <CategoryIcon category={row.category} className={`w-5 h-5 ${row.isOver ? "text-destructive" : colors.text}`} />
                       </div>
 
-                      {/* Name + bar/sub */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-4 mb-1.5">
                           <span className="font-medium">{row.category.name}</span>
                           <div className="flex items-center gap-3 flex-shrink-0">
+                            {!isEmpty && row.limit !== null && (
+                              <Badge
+                                variant="secondary"
+                                className={[
+                                  "hidden sm:inline-flex",
+                                  row.isOver
+                                    ? "bg-destructive/10 text-destructive border border-destructive/15 hover:bg-destructive/10"
+                                    : row.pct >= 80
+                                      ? "bg-warning/10 text-warning border border-warning/15 hover:bg-warning/10"
+                                      : "bg-success/10 text-success border border-success/15 hover:bg-success/10",
+                                ].join(" ")}
+                              >
+                                {row.isOver ? "Over" : row.pct >= 80 ? "Close" : "On track"}
+                              </Badge>
+                            )}
                             {row.limit !== null && !isEmpty && (
                               <span className={`text-xs ${row.isOver ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                                {row.isOver
-                                  ? `£${(row.spend - row.limit).toFixed(2)} over`
-                                  : `£${(row.limit - row.spend).toFixed(2)} left`}
+                                {row.isOver ? `£${(row.spend - row.limit).toFixed(2)} over` : `£${(row.limit - row.spend).toFixed(2)} left`}
                               </span>
                             )}
-                            <span className={`font-semibold tabular-nums ${
-                              isEmpty ? "text-muted-foreground" : row.isOver ? "text-destructive" : ""
-                            }`}>
+                            <span className={`font-semibold tabular-nums ${isEmpty ? "text-muted-foreground" : row.isOver ? "text-destructive" : ""}`}>
                               {isEmpty ? "—" : `£${row.spend.toFixed(2)}`}
                             </span>
                           </div>
                         </div>
+
                         {row.limit !== null ? (
-                          <Progress
-                            value={row.pct}
-                            className={`h-1.5 ${
-                              row.isOver
-                                ? "[&>div]:bg-[#c75146]"
-                                : row.pct >= 80
-                                ? "[&>div]:bg-[#e6a563]"
-                                : "[&>div]:bg-[#7fa087]"
-                            }`}
-                          />
+                          <div className="space-y-1.5">
+                            <Progress
+                              value={row.pct}
+                              className={`h-1.5 ${row.isOver ? "[&>div]:bg-[#c75146]" : row.pct >= 80 ? "[&>div]:bg-[#e6a563]" : "[&>div]:bg-[#7fa087]"}`}
+                            />
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                              <span>{row.monthExpenses.length} {row.monthExpenses.length === 1 ? "expense" : "expenses"}</span>
+                              <span>{Math.round(row.pct)}% of limit used</span>
+                            </div>
+                          </div>
                         ) : (
                           <p className="text-xs text-muted-foreground">
-                            {isEmpty
-                              ? "Nothing spent this month"
-                              : `${row.monthExpenses.length} ${row.monthExpenses.length === 1 ? "expense" : "expenses"} · no limit set`}
+                            {isEmpty ? "Nothing spent this month" : `${row.monthExpenses.length} ${row.monthExpenses.length === 1 ? "expense" : "expenses"} · no limit set`}
                           </p>
                         )}
                       </div>
 
-                      {/* Chevron */}
                       {!isEmpty && (
-                        <motion.div
-                          animate={{ rotate: isExpanded ? 180 : 0 }}
-                          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                          className="flex-shrink-0 ml-1"
-                        >
+                        <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }} className="flex-shrink-0 ml-1">
                           <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         </motion.div>
                       )}
                     </button>
 
-                    {/* Expanded drawer */}
                     <AnimatePresence initial={false}>
                       {isExpanded && (
                         <motion.div
@@ -369,64 +807,88 @@ export function Budget() {
                             <div className="h-px bg-border/60" />
 
                             {row.monthExpenses.length === 0 ? (
-                              <p className="text-sm text-muted-foreground py-2">
-                                No expenses recorded this month.
-                              </p>
+                              <p className="text-sm text-muted-foreground py-2">No expenses recorded this month.</p>
                             ) : (
-                              <div className="space-y-1.5">
-                                {[...row.monthExpenses]
-                                  .sort((a, b) => b.date.localeCompare(a.date))
-                                  .map((exp, ei) => (
-                                    <motion.div
-                                      key={exp.id}
-                                      initial={{ opacity: 0, y: 4 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      transition={{ duration: 0.18, delay: ei * 0.04, ease }}
-                                      className="flex items-center justify-between px-3 py-2.5 bg-muted/50 rounded-xl"
-                                    >
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium truncate">{exp.title}</p>
-                                        <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                                          <CalendarIcon className="w-3 h-3" />
-                                          <span>{format(parseISO(exp.date), "d MMM")}</span>
-                                          <span>·</span>
-                                          <User className="w-3 h-3" />
-                                          <span>{memberName(exp.paid_by)}</span>
-                                          {exp.split_type === "equal" && (
-                                            <>
-                                              <span>·</span>
-                                              <Badge variant="secondary" className="text-xs py-0 h-4">shared</Badge>
-                                            </>
-                                          )}
-                                          {exp.split_type === "solo" && (
-                                            <>
-                                              <span>·</span>
-                                              <Badge variant="outline" className="text-xs py-0 h-4">personal</Badge>
-                                            </>
-                                          )}
-                                          {exp.is_recurring && (
-                                            <>
-                                              <span>·</span>
-                                              <Repeat className="w-3 h-3 text-primary" />
-                                              <span className="text-primary capitalize">{exp.recurrence_interval}</span>
-                                            </>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <p className="text-sm font-semibold ml-4 flex-shrink-0 tabular-nums">
-                                        £{Number(exp.amount).toFixed(2)}
+                              <div className="space-y-3">
+                                {row.limit !== null && (
+                                  <div className="grid sm:grid-cols-3 gap-2">
+                                    <div className="rounded-xl bg-muted/35 px-3 py-2.5">
+                                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Spent</p>
+                                      <p className="text-sm font-semibold">£{row.spend.toFixed(2)}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-muted/35 px-3 py-2.5">
+                                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Limit</p>
+                                      <p className="text-sm font-semibold">£{row.limit.toFixed(2)}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-muted/35 px-3 py-2.5">
+                                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Status</p>
+                                      <p className={`text-sm font-semibold ${row.isOver ? "text-destructive" : row.pct >= 80 ? "text-warning" : "text-success"}`}>
+                                        {row.isOver ? `£${(row.spend - row.limit).toFixed(2)} over` : `£${(row.limit - row.spend).toFixed(2)} left`}
                                       </p>
-                                    </motion.div>
-                                  ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {row.recurringExpenses.length > 0 && (
+                                  <div className="rounded-xl bg-primary/5 border border-primary/10 px-3.5 py-3">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                      <Repeat className="w-3.5 h-3.5 text-primary" />
+                                      <p className="text-sm font-medium">Recurring in this category</p>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {row.recurringExpenses.length} {row.recurringExpenses.length === 1 ? "recurring expense" : "recurring expenses"} worth £{row.recurringExpenses.reduce((sum, exp) => sum + Number(exp.amount), 0).toFixed(2)} in your wider expenses history.
+                                    </p>
+                                  </div>
+                                )}
+
+                                <div className="space-y-1.5">
+                                  {[...row.monthExpenses]
+                                    .sort((a, b) => b.date.localeCompare(a.date))
+                                    .map((exp, ei) => (
+                                      <motion.div
+                                        key={exp.id}
+                                        initial={{ opacity: 0, y: 4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.18, delay: ei * 0.04, ease }}
+                                        className="flex items-center justify-between px-3 py-2.5 bg-muted/50 rounded-xl"
+                                      >
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium truncate">{exp.title}</p>
+                                          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground flex-wrap">
+                                            <CalendarIcon className="w-3 h-3" />
+                                            <span>{format(parseISO(exp.date), "d MMM")}</span>
+                                            <span>·</span>
+                                            <User className="w-3 h-3" />
+                                            <span>{memberName(exp.paid_by)}</span>
+                                            {exp.split_type === "equal" && (
+                                              <>
+                                                <span>·</span>
+                                                <Badge variant="secondary" className="text-xs py-0 h-4">shared</Badge>
+                                              </>
+                                            )}
+                                            {exp.split_type === "solo" && (
+                                              <>
+                                                <span>·</span>
+                                                <Badge variant="outline" className="text-xs py-0 h-4">personal</Badge>
+                                              </>
+                                            )}
+                                            {exp.is_recurring && (
+                                              <>
+                                                <span>·</span>
+                                                <Repeat className="w-3 h-3 text-primary" />
+                                                <span className="text-primary capitalize">{exp.recurrence_interval}</span>
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <p className="text-sm font-semibold ml-4 flex-shrink-0 tabular-nums">£{Number(exp.amount).toFixed(2)}</p>
+                                      </motion.div>
+                                    ))}
+                                </div>
                               </div>
                             )}
 
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2"
-                              onClick={() => navigate(`/expenses?category=${encodeURIComponent(row.category.name)}`)}
-                            >
+                            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2" onClick={() => navigate(`/expenses?category=${encodeURIComponent(row.category.name)}`)}>
                               View all {row.category.name} expenses
                               <ArrowRight className="w-3.5 h-3.5" />
                             </Button>
@@ -439,9 +901,7 @@ export function Budget() {
               );
             })}
           </div>
-        )}
-
-      </AnimatedPage>
-    </>
+        ))}
+    </AnimatedPage>
   );
 }

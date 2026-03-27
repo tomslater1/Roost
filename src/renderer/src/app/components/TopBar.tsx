@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Bell, Settings, LogOut } from "lucide-react"
+import { Bell, Settings, LogOut, Search } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 
 import { Button } from "./ui/button";
 import { NotificationPanel } from "./NotificationPanel";
 import { ThemeToggle } from "./ThemeToggle";
 import { MemberAvatar } from "./MemberAvatar";
+import { GlobalSearch } from "./GlobalSearch";
 import { useApp } from "../context/AppContext";
 import { useAuthContext } from "@/context/AuthContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,11 +21,29 @@ export function TopBar() {
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchMounted, setSearchMounted] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const displayName = currentMember?.display_name ?? user?.email?.split("@")[0] ?? "Me";
   const firstName = displayName.split(" ")[0];
   const userEmail = user?.email ?? "";
+
+  useEffect(() => {
+    const openSearch = () => setShowSearch(true)
+    window.addEventListener("roost:open-search", openSearch)
+    return () => window.removeEventListener("roost:open-search", openSearch)
+  }, [])
+
+  useEffect(() => {
+    if (showSearch) {
+      setSearchMounted(true)
+      return
+    }
+
+    const timeout = window.setTimeout(() => setSearchMounted(false), 180)
+    return () => window.clearTimeout(timeout)
+  }, [showSearch])
 
   return (
     <header className="h-14 border-b border-border flex items-center justify-between px-6 relative bg-background">
@@ -36,8 +55,55 @@ export function TopBar() {
         <span className="font-semibold text-lg">Roost</span>
       </div>
 
-      {/* Right — theme · notifications · settings · profile */}
+      {/* Centre/right — search then utilities */}
       <div className="flex items-center gap-3">
+        <motion.div
+          layout
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="hidden md:block"
+          style={{ width: showSearch ? 448 : 220 }}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {searchMounted ? (
+              <motion.div
+                key="search-open"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.14 }}
+              >
+                <GlobalSearch open={showSearch} onOpenChange={setShowSearch} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="search-closed"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.16 }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowSearch(true)}
+                  className="w-full h-10 rounded-xl border border-border/80 bg-background/80 px-4 flex items-center gap-3 text-sm text-muted-foreground hover:bg-muted/30 transition-colors"
+                  aria-label="Search everything"
+                >
+                  <Search className="w-4 h-4" />
+                  <span className="flex-1 text-left">Search Roost</span>
+                  <span className="text-[11px] flex items-center gap-1.5">
+                    <span>⌘</span>
+                    <span>K</span>
+                  </span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        <Button variant="ghost" size="icon" onClick={() => setShowSearch(true)} aria-label="Search everything" className="md:hidden">
+          <Search className="w-4 h-4" />
+        </Button>
+
         <ThemeToggle />
 
         {/* Notification bell */}
@@ -127,6 +193,7 @@ export function TopBar() {
           )}
         </div>
       </div>
+
     </header>
   );
 }

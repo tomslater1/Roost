@@ -1,135 +1,15 @@
-import { useRef } from "react"
 import {
   Bell, Monitor, Smartphone, CheckCircle2, Receipt,
-  ShoppingCart, Handshake, Moon, ChevronUp, ChevronDown, Pin,
+  ShoppingCart, Handshake, Moon, Pin, CalendarClock,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { Card, CardContent } from "../../components/ui/card"
 import { Switch } from "../../components/ui/switch"
+import { TimePicker } from "../../components/ui/TimePicker"
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences"
 import type { NotificationPrefs } from "@/lib/schemas/notifications"
 
 const ease = [0.16, 1, 0.3, 1] as const
-const spring = { type: "spring" as const, stiffness: 400, damping: 17 }
-
-// ── Time spinner unit ────────────────────────────────────────────────────────
-// A single column (hours or minutes) with animated drum-scroll numbers.
-
-const numVariants = {
-  enter: (dir: number) => ({ y: dir * 14, opacity: 0, scale: 0.85 }),
-  center: { y: 0, opacity: 1, scale: 1 },
-  exit: (dir: number) => ({ y: dir * -14, opacity: 0, scale: 0.85 }),
-}
-
-interface TimeUnitProps {
-  value: number
-  wrap: number   // modulus (24 for hours, 60 for minutes)
-  step: number
-  label: string
-  onChange: (v: number) => void
-}
-
-function TimeUnit({ value, wrap, step, label, onChange }: TimeUnitProps) {
-  // Use a ref so direction is always current when AnimatePresence reads custom
-  const dirRef = useRef(0)
-
-  const inc = () => {
-    dirRef.current = 1
-    onChange((value + step) % wrap)
-  }
-
-  const dec = () => {
-    dirRef.current = -1
-    onChange((value - step + wrap) % wrap)
-  }
-
-  const display = String(value).padStart(2, "0")
-
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      {/* Up button */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.85 }}
-        transition={spring}
-        onClick={inc}
-        className="w-8 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-        aria-label={`Increase ${label}`}
-      >
-        <ChevronUp className="w-3.5 h-3.5" />
-      </motion.button>
-
-      {/* Animated number */}
-      <div className="h-10 w-10 relative overflow-hidden flex items-center justify-center select-none">
-        <AnimatePresence mode="popLayout" custom={dirRef.current}>
-          <motion.span
-            key={value}
-            custom={dirRef.current}
-            variants={numVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.14, ease }}
-            className="absolute text-xl font-semibold tabular-nums tracking-tight"
-          >
-            {display}
-          </motion.span>
-        </AnimatePresence>
-      </div>
-
-      {/* Down button */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.85 }}
-        transition={spring}
-        onClick={dec}
-        className="w-8 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-        aria-label={`Decrease ${label}`}
-      >
-        <ChevronDown className="w-3.5 h-3.5" />
-      </motion.button>
-
-      {/* Unit label */}
-      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mt-0.5">
-        {label}
-      </span>
-    </div>
-  )
-}
-
-// ── Time picker ──────────────────────────────────────────────────────────────
-
-interface TimePickerProps {
-  value: string       // "HH:MM"
-  onChange: (v: string) => void
-  label: string
-}
-
-function TimePicker({ value, onChange, label }: TimePickerProps) {
-  const parts = value.split(":")
-  const h = parseInt(parts[0] ?? "0", 10)
-  const m = parseInt(parts[1] ?? "0", 10)
-
-  const setH = (newH: number) =>
-    onChange(`${String(newH).padStart(2, "0")}:${String(m).padStart(2, "0")}`)
-
-  const setM = (newM: number) =>
-    onChange(`${String(h).padStart(2, "0")}:${String(newM).padStart(2, "0")}`)
-
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <div className="inline-flex items-end gap-1 px-4 py-3 bg-muted/40 border border-border/70 rounded-2xl">
-        <TimeUnit value={h} wrap={24} step={1} label="hr"  onChange={setH} />
-        {/* Colon separator */}
-        <div className="flex flex-col items-center pb-[1.625rem] px-0.5">
-          <span className="text-xl font-semibold text-muted-foreground leading-none">:</span>
-        </div>
-        <TimeUnit value={m} wrap={60} step={5} label="min" onChange={setM} />
-      </div>
-    </div>
-  )
-}
 
 // ── Shared row component ─────────────────────────────────────────────────────
 
@@ -316,6 +196,15 @@ export function Notifications() {
                 description="When someone leaves you or the home a new note"
                 checked={prefs.pinboard_enabled}
                 onCheckedChange={(v) => set("pinboard_enabled", v)}
+              />
+              <PrefRow
+                icon={CalendarClock}
+                iconBg="bg-[#e6a563]/10"
+                iconColor="text-[#e6a563]"
+                title="Bill reminders"
+                description="Recurring rent, mortgage, and bill due-date nudges"
+                checked={prefs.bill_reminders_enabled}
+                onCheckedChange={(v) => set("bill_reminders_enabled", v)}
               />
             </div>
           </CardContent>

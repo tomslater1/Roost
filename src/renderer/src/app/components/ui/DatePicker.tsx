@@ -23,6 +23,7 @@ export function DatePicker({
   className,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  const label = value ? format(value, "d MMM yyyy") : placeholder;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -30,13 +31,20 @@ export function DatePicker({
         <Button
           variant="outline"
           disabled={disabled}
-          className={`w-full justify-start gap-2 font-normal ${!value ? "text-muted-foreground" : ""} ${className ?? ""}`}
+          className={`w-full justify-start gap-3 rounded-xl border-transparent bg-background px-3.5 text-left font-normal shadow-none hover:bg-accent/30 hover:border-transparent ${!value ? "text-muted-foreground" : "text-foreground"} ${className ?? ""}`}
         >
-          <CalendarIcon className="w-4 h-4 shrink-0" />
-          {value ? format(value, "d MMM yyyy") : placeholder}
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <CalendarIcon className="h-4 w-4" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Date
+            </span>
+            <span className="truncate">{label}</span>
+          </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align={align}>
+      <PopoverContent className="w-auto rounded-2xl border-border/80 p-2 shadow-2xl" align={align}>
         <Calendar
           mode="single"
           selected={value ?? undefined}

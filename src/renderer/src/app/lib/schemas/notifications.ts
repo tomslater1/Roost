@@ -26,6 +26,7 @@ export const notificationPrefsSchema = z.object({
   shopping_enabled: z.boolean().default(true),
   settlements_enabled: z.boolean().default(true),
   pinboard_enabled: z.boolean().default(true),
+  bill_reminders_enabled: z.boolean().default(true),
   quiet_hours_enabled: z.boolean().default(false),
   quiet_hours_start: z.string().default('22:00'),
   quiet_hours_end: z.string().default('08:00'),

@@ -14,7 +14,10 @@ export default defineConfig({
     root: 'src/renderer',
     build: {
       rollupOptions: {
-        input: resolve(__dirname, 'src/renderer/index.html'),
+        input: {
+          main: resolve(__dirname, 'src/renderer/index.html'),
+          menubar: resolve(__dirname, 'src/renderer/menubar.html'),
+        },
       },
     },
     resolve: {

@@ -34,6 +34,22 @@ contextBridge.exposeInMainWorld('api', {
   suggestChores: (existingChores: string[], month: string) =>
     ipcRenderer.invoke('chore:suggest', existingChores, month),
 
+  budgetInsights: (input: {
+    monthLabel: string
+    totalSpent: number
+    totalBudget: number
+    projectedMonthEnd: number
+    remaining: number
+    overspend: number
+    topCategories: Array<{
+      name: string
+      spend: number
+      limit: number | null
+      pct: number
+      recurringTotal: number
+    }>
+  }) => ipcRenderer.invoke('budget:insights', input),
+
   // Write a ready-made .ics string to a temp file and open in the default calendar app.
   exportCalendar: (icsContent: string) =>
     ipcRenderer.invoke('export-calendar', icsContent),
@@ -41,6 +57,9 @@ contextBridge.exposeInMainWorld('api', {
   // Open a URL via the system's default handler (e.g. webcal:// opens Apple Calendar subscribe).
   openExternal: (url: string) =>
     ipcRenderer.invoke('open-external', url),
+
+  openMainWindow: () =>
+    ipcRenderer.invoke('open-main-window'),
 
   // Subscribe to update status events pushed from the main process.
   onUpdateStatus: (callback: (status: unknown) => void) => {

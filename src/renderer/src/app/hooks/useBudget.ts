@@ -10,6 +10,7 @@ import {
   subMonths,
   addMonths,
   isSameMonth,
+  differenceInCalendarMonths,
 } from 'date-fns'
 import { z } from 'zod'
 import { supabase } from '@/lib/supabase'
@@ -62,9 +63,17 @@ export function useBudget({ expenses }: { expenses: ExpenseWithSplits[] }) {
 
   const monthKey = format(startOfMonth(selectedMonth), 'yyyy-MM-dd')
   const isCurrentMonth = isSameMonth(selectedMonth, new Date())
+  const monthsAhead = differenceInCalendarMonths(startOfMonth(selectedMonth), startOfMonth(new Date()))
+  const canGoForward = monthsAhead < 12
 
   const prevMonth = useCallback(() => setSelectedMonth((m) => subMonths(m, 1)), [])
-  const nextMonth = useCallback(() => setSelectedMonth((m) => addMonths(m, 1)), [])
+  const nextMonth = useCallback(
+    () => setSelectedMonth((m) => {
+      const next = addMonths(m, 1)
+      return differenceInCalendarMonths(startOfMonth(next), startOfMonth(new Date())) <= 12 ? next : m
+    }),
+    []
+  )
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
@@ -289,6 +298,8 @@ export function useBudget({ expenses }: { expenses: ExpenseWithSplits[] }) {
     prevMonth,
     nextMonth,
     isCurrentMonth,
+    canGoForward,
+    monthsAhead,
     upsertBudget,
     deleteBudget,
     addCustomCategory,

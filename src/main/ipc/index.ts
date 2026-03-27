@@ -1,13 +1,13 @@
 // IPC handlers for main ↔ renderer communication.
 // The renderer calls these via window.api (defined in preload/index.ts).
 
-import { app, ipcMain, Notification, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron'
 import { spawn } from 'child_process'
 import { autoUpdater } from 'electron-updater'
 import { writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, dirname } from 'path'
-import { normalizeText, suggestChores } from '../claude'
+import { getBudgetInsights, normalizeText, suggestChores } from '../claude'
 
 
 export function registerIpcHandlers(getZipPath: () => string | null): void {
@@ -31,6 +31,10 @@ export function registerIpcHandlers(getZipPath: () => string | null): void {
   // Returns an array of up to 5 suggestion strings, or [] on any error.
   ipcMain.handle('chore:suggest', (_event, existingChores: string[], month: string) =>
     suggestChores(existingChores, month).catch(() => [])
+  )
+
+  ipcMain.handle('budget:insights', (_event, input) =>
+    getBudgetInsights(input).catch(() => null)
   )
 
   // Write a ready-made .ics string to a temp file and open it in the default calendar app.
@@ -61,6 +65,17 @@ export function registerIpcHandlers(getZipPath: () => string | null): void {
     } catch (err) {
       console.error('[open-external] failed:', err)
       return { error: String(err) }
+    }
+  })
+
+  ipcMain.handle('open-main-window', () => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        if (win.isMinimized()) win.restore()
+        win.show()
+        win.focus()
+        return
+      }
     }
   })
 

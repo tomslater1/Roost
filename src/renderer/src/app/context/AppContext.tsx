@@ -89,7 +89,7 @@ export interface BudgetCategory {
 
 export interface Notification {
   id: string;
-  type: "chore" | "expense" | "shopping_item" | "settlement";
+  type: "chore" | "expense" | "shopping_item" | "settlement" | "bill_reminder";
   title: string;
   timestamp: Date;
   isRead: boolean;
@@ -450,7 +450,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Notifications ─────────────────────────────────────────────────────
   const notifications: Notification[] = notificationsHook.notifications.map((n) => ({
     id: n.id,
-    type: (["chore", "expense", "shopping_item", "settlement"].includes(n.type ?? "")
+    type: (["chore", "expense", "shopping_item", "settlement", "bill_reminder"].includes(n.type ?? "")
       ? n.type
       : "expense") as Notification["type"],
     title: n.title,

@@ -69,7 +69,7 @@ Phase 2 locked down the architecture. Phase 3 will define the visual language. P
 
 - [x] **Budgeting section (new page)** — A dedicated view for household financial health. Couples can set a monthly budget for any category (groceries, eating out, household, entertainment) or a single total household budget. The page shows: total spent this month vs. budget with a visual progress bar (green → amber → red as the limit approaches), a breakdown by category pulling from existing expense data, month-on-month spend trends as a simple bar chart, and a projected end-of-month total based on the current spend rate. Budget limits are stored per home in the database. This is not a replacement for the Expenses section — it is an overview layer on top of it. The guiding question is: "are we on track this month?" answered at a glance without opening a spreadsheet.
 
-- [ ] **Dropdown calendar date pickers (all date inputs)** — Every place in the app where a date is entered — adding a chore with a due date, setting the next shop date, logging an expense date — should use a native-feeling popover calendar picker rather than a plain text input or the browser's default date widget. The picker should open below the input field, show a month grid with prev/next navigation, highlight today, and close on selection or outside click. This should be a single reusable `<DatePicker>` component built on Radix UI Popover (already installed) with full keyboard support: arrow keys navigate days, Enter selects, Escape closes. This is a quality-of-life improvement that touches chores, expenses, shopping (next shop date), and any future feature that takes a date.
+- [x] **Dropdown calendar date pickers (all date inputs)** — Every place in the app where a date is entered — adding a chore with a due date, setting the next shop date, logging an expense date — should use a native-feeling popover calendar picker rather than a plain text input or the browser's default date widget. The picker should open below the input field, show a month grid with prev/next navigation, highlight today, and close on selection or outside click. This should be a single reusable `<DatePicker>` component built on Radix UI Popover (already installed) with full keyboard support: arrow keys navigate days, Enter selects, Escape closes. This is a quality-of-life improvement that touches chores, expenses, shopping (next shop date), and any future feature that takes a date.
 
 - [x] **Dashboard build-out** — The Dashboard is currently a placeholder. It should become the true home screen: a single view where a couple can see everything that matters without navigating away. The layout is a grid of summary cards, each deep-linking to its full section. Cards to include: **Shopping** (count of unchecked items + the last 3 items added), **Chores** (overdue count + the next due chore), **Expenses** (current balance — who owes whom and how much), **Budget** (current month spend vs. limit, colour-coded), **Activity Feed** (the 5 most recent events, with avatars), and **Next Shop Date** (prominently displayed with a countdown: "Shopping in 3 days"). The dashboard is read-only — it surfaces information, it does not replace the dedicated section pages. It should update in real-time: when your partner checks off a shopping item, the dashboard card count drops immediately.
 
@@ -271,28 +271,40 @@ A friend who is not a developer can download the app, create an account, and inv
 
 ---
 
-### 🍎 Phase 5 — Mac App Store
-*Everything required to submit to the Mac App Store.*
+### 🌐 Phase 5 — Website Distribution & Frictionless Download
+*Make Roost feel trustworthy, obvious, and easy to install for a completely non-technical couple.*
 
-Be honest: this is the most technically complex phase, and it has nothing to do with features. Mac App Store distribution requires code signing with an Apple Developer account, notarisation, App Sandbox compliance, App Store Connect metadata, and passing Apple's app review. Each of these has real complexity. Budget time and patience.
+The Mac App Store is no longer the goal. Phase 5 is now about direct distribution done properly: a polished website, clear messaging, trustworthy download flows, signed and notarised builds, and an install experience that does not require hand-holding. The standard here is simple: someone who has never heard of Supabase, GitHub Releases, or Gatekeeper should be able to land on the site, understand Roost in under a minute, download it, open it safely, and get into the app without messaging me for help.
+
+This phase is partly technical and partly product/marketing. The app itself may already work well, but if the website is unclear, the download feels risky, or the install instructions are vague, the product is not truly ready for real people.
 
 **What's required:**
 
-- [ ] **Apple Developer Program** — $99/year. Required. Sign up at developer.apple.com.
-- [ ] **App Sandbox** — Mac App Store apps must run in the sandbox. This restricts what the app can access (filesystem, network, etc.). Will likely break things — audit and fix.
-- [ ] **Code signing** — Sign with a Mac App Distribution certificate. Every build must be signed.
-- [ ] **Notarisation** — Even outside the App Store, Apple requires notarisation for apps distributed on macOS 10.15+. For the App Store this is handled by Apple.
-- [ ] **Hardened Runtime** — Required for notarisation. Review entitlements.
-- [ ] **App Store Connect setup** — App name, description, keywords, category, age rating, support URL, privacy policy URL
-- [ ] **Screenshots** — Required sizes: 1280×800 or 1440×900 for Mac. Minimum 3, maximum 10.
-- [ ] **App icon** — Proper icon set at all required sizes (16, 32, 64, 128, 256, 512, 1024px). Currently a placeholder.
-- [ ] **Privacy manifest** — Apple now requires a privacy manifest file declaring what data the app collects
-- [ ] **App review preparation** — Ensure the app works with a demo account that Apple's review team can use. Write clear review notes.
-- [ ] **Pricing** — Free, freemium, or paid. Decide before submission.
+- [ ] **Website becomes the real front door** — The landing page should clearly explain what Roost is, who it is for, and why a couple would want it. It should feel like the same product as the app: warm, calm, trustworthy, and intentional. No placeholder copy, no generic startup language.
+- [ ] **Clear download path** — The site needs a prominent, unmissable download CTA that points to the latest stable macOS build. The user should never need to browse GitHub manually to find the app.
+- [ ] **Versioned release handoff from GitHub to website** — GitHub Releases can remain the build/distribution backend, but the website must surface the current release cleanly so the average user never sees the plumbing unless they want to.
+- [ ] **Signed macOS app** — Sign Roost with a Developer ID certificate so it feels like legitimate Mac software instead of a suspicious unsigned download.
+- [ ] **Notarisation** — Notarise every public build so Gatekeeper allows the app to open cleanly on a normal Mac.
+- [ ] **Hardened runtime / release safety audit** — Confirm production builds meet modern macOS distribution expectations and that nothing in the release configuration undermines trust or stability.
+- [ ] **First-run install guidance** — The website should have a short, well-designed help section for the first open: how to install the DMG, what to expect on first launch, and what to do if macOS warns about an unknown developer before signing/notarisation are fully locked down.
+- [ ] **Simple support surface** — Add an obvious support/contact path on the site so users know where to go if something goes wrong.
+- [ ] **Website polish for trust** — Add real screenshots, concise feature explanation, privacy reassurance, and enough product detail that a couple feels confident downloading it.
+- [ ] **Download confidence signals** — Version number, last updated date, Apple Silicon/Intel support wording, and a short note on privacy and updates should all be easy to find.
+- [ ] **Auto-update confidence** — The website copy should make it clear that Roost updates itself, so users are not worried that downloading directly means they are stuck managing updates manually.
 
-**Honest note:** Apple's review can reject for unexpected reasons. Plan for at least one rejection cycle and the 1–2 week turnaround it involves. The sandbox restrictions in particular may require rethinking how certain features work. This phase is not quick.
+**Suggested website sections:**
 
-**Estimated time:** 4–8 weeks (heavily dependent on Apple review cycles)
+- Hero: what Roost is in one sentence + download CTA
+- Why Roost: shopping, expenses, chores, calendar, pinboard — the shared-life story
+- Screenshots: real app UI, not mock fluff
+- Privacy: private by default, no analytics, data stays in your home
+- How it works: download → sign in → invite partner → start using it
+- Support / FAQ: install help, updates, known issues, contact
+
+**Definition of done:**
+A non-technical user can discover Roost from the website, understand it, download it safely, install it on their Mac without confusion, and trust that it is legitimate software. The app is signed, notarised, clearly presented, and easy to get running without direct help from me.
+
+**Estimated time:** 3–6 weeks
 
 ---
 
@@ -324,32 +336,32 @@ The iOS app is on the App Store. My girlfriend and I use it on our phones. Real-
 ## 📋 Feature Backlog
 
 ### Core — Must have before anyone else uses it
-- Shopping list with real-time sync
-- Expense splitting with running balance
-- Chores with assignments and due dates
-- Activity feed (live log of household events)
-- Auth: signup, login, invite/join flow
-- Settings: invite code, member list, display name
-- Push notifications when your partner makes a change
+- ~~Shopping list with real-time sync~~
+- ~~Expense splitting with running balance~~
+- ~~Chores with assignments and due dates~~
+- ~~Activity feed (live log of household events)~~
+- ~~Auth: signup, login, invite/join flow~~
+- ~~Settings: invite code, member list, display name~~
+- ~~Push notifications when your partner makes a change~~
 
 ### Enhancement — Makes the experience meaningfully better
-- Dark mode (system-aware)
-- Chore recurrence (weekly, monthly)
-- Custom expense splits (not just equal)
-- Settle up flow for expenses
-- Calendar with shared events and bill due dates → **Phase 2.5**
-- Bill reminders — notification X days before a due date
-- Shared notes / pinboard — a freeform shared space for anything
-- Search across all content
-- Keyboard shortcuts throughout
-- Command palette (`Cmd+K`)
+- ~~Dark mode (system-aware)~~
+- ~~Chore recurrence (weekly, monthly)~~
+- ~~Custom expense splits (not just equal)~~
+- ~~Settle up flow for expenses~~
+- ~~Calendar with shared events and bill due dates~~ → **Phase 2.5**
+- ~~Bill reminders — notification X days before a due date~~
+- ~~Shared notes / pinboard — a freeform shared space for anything~~
+- ~~Search across all content~~
+- ~~Keyboard shortcuts throughout~~
+- ~~Command palette (`Cmd+K`)~~
 - macOS menu bar widget — quick add item without opening the full app
-- Auto-update (electron-updater)
-- Grocery budget — set a weekly budget, track spend against it → **Phase 2.5**
-- Dropdown date pickers throughout → **Phase 2.5**
-- Dashboard build-out → **Phase 2.5**
-- Shopping list: category grouping, next shop date, quick-add keyboard flow → **Phase 2.5**
-- Chore overdue indicators, completion history, streaks → **Phase 2.5**
+- ~~Auto-update (electron-updater)~~
+- ~~Grocery budget / household budget tracking~~ → **Phase 2.5**
+- ~~Dropdown date pickers throughout~~ → **Phase 2.5**
+- ~~Dashboard build-out~~ → **Phase 2.5**
+- ~~Shopping list: category grouping, next shop date, quick-add keyboard flow~~ → **Phase 2.5**
+- ~~Chore overdue indicators, completion history, streaks~~ → **Phase 2.5**
 
 ### Ambitious — For when the foundation is solid
 - **Moving checklist** — Thomas is moving in with his girlfriend in June 2026. A structured shared checklist for the move, with categories (things to buy, admin tasks, dates to remember). Could be the first "special mode" in the app.
@@ -422,6 +434,53 @@ Things that were done quickly or need revisiting. Be honest here — this is not
 ---
 
 ## 📅 Session Log
+
+### Session 12 — 27 March 2026
+Major Budget section rework: split into two tabs (Analytics + Categories), added forward-looking month navigation, Hazel-powered forecasting, and richer visual analytics.
+
+**Two-tab Budget architecture:**
+- Split the Budget page into an **Analytics** tab and a **Categories** tab, switchable via a warm pill toggle at the top
+- Analytics tab contains the household overview, stats, six-month spend chart, Hazel forecast, plain-English narrative, attention callouts, and top-category bars
+- Categories tab preserves the full existing category breakdown with expandable rows, expense drill-down, recurring cost visibility, and status badges — nothing removed
+
+**Forward-looking month navigation:**
+- Extended month navigation so users can skip up to **12 months into the future** as well as back into the past
+- Month selector now shows "X months ahead" context when viewing future months
+- `useBudget` hook updated with `canGoForward`, `monthsAhead`, and a capped `nextMonth` callback
+
+**Hazel-assisted budget forecasting:**
+- Added a new `getBudgetInsights` function in `src/main/claude.ts` that takes the month's budget numbers and top categories and returns a warm summary, outlook, and 3 focus points
+- Wired through IPC (`budget:insights`), preload bridge (`budgetInsights`), and `window.d.ts` types
+- Analytics tab calls Hazel on mount and displays the forecast in a dedicated card with loading skeleton and graceful fallback
+
+**Visual analytics (no external chart library):**
+- Built a lightweight six-month spend-vs-budget bar chart using pure CSS/Tailwind (no recharts dependency added)
+- Added a top-categories horizontal bar visualization showing relative spend, limit status, and recurring breakdown
+- All visuals follow the design ethos: warm rounded bars, muted tones, gentle status colours
+
+**Preserved existing functionality:**
+- All category rows, expandable drawers, expense history, recurring cost callouts, budget limit management, and settings integration remain intact on the Categories tab
+- The household overview card, stats row, plain-English narrative, and needs-attention panel all remain on the Analytics tab
+
+**Verification:**
+- `npm run typecheck` passes after the full Budget rework
+
+### Session 11 — 27 March 2026
+Completed the app-wide date/time picker consistency pass from the enhancement backlog.
+
+**Date picker unification:**
+- Audited the renderer for all date entry surfaces and confirmed there are no remaining raw `<input type="date">` or `<input type="time">` controls anywhere in the app
+- Refined the shared `DatePicker` to feel calmer and more native to Roost's design language: softer rounded trigger, clearer date label hierarchy, warmer popover treatment, and a more polished calendar grid
+- Updated the shared calendar styling to better match the design ethos with softer navigation controls, roomier day cells, and gentler “today” / selected states
+
+**Time picker unification:**
+- Extracted the Apple-style drum time picker from Settings → Notifications into a reusable `components/ui/TimePicker.tsx`
+- Kept the native-feeling hour/minute spinner interaction and warm visual treatment so future time-based features can reuse the same component without duplicating logic
+- Notifications quiet hours now consume the shared `TimePicker` component rather than owning a one-off local implementation
+
+**Verification:**
+- Re-audited the renderer after the refactor to confirm all date/time entry points are covered by the shared components
+- Ran `npm run typecheck` successfully after the refactor
 
 ### Session 10 — 27 March 2026
 Pinboard replaced DishBoard and became a real shared household surface rather than a placeholder integration tab.

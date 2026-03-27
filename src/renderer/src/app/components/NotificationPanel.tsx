@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { X, Bell, CheckCircle, Receipt, ShoppingCart, Handshake } from "lucide-react";
+import { X, Bell, CheckCircle, Receipt, ShoppingCart, Handshake, CalendarClock } from "lucide-react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { useApp } from "../context/AppContext";
@@ -13,6 +13,7 @@ const iconMap = {
   expense: Receipt,
   shopping_item: ShoppingCart,
   settlement: Handshake,
+  bill_reminder: CalendarClock,
 };
 
 const colorMap = {
@@ -20,6 +21,7 @@ const colorMap = {
   expense: "text-success",
   shopping_item: "text-info",
   settlement: "text-success",
+  bill_reminder: "text-warning",
 };
 
 function formatRelativeTime(date: Date): string {

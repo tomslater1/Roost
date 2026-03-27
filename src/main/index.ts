@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, Tray, shell, nativeImage, Menu } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { registerIpcHandlers } from './ipc/index'
 import { join } from 'path'
@@ -19,6 +19,8 @@ app.setAsDefaultProtocolClient('roost')
 
 // Hold a reference to the main window so we can send IPC messages to it.
 let mainWindow: BrowserWindow | null = null
+let menuBarWindow: BrowserWindow | null = null
+let tray: Tray | null = null
 
 // Path to the zip downloaded by electron-updater. Captured in update-downloaded so
 // the IPC install handler can apply it manually (bypassing Squirrel.Mac, which
@@ -147,6 +149,86 @@ function createWindow(): void {
   }
 }
 
+function createMenuBarWindow(): void {
+  menuBarWindow = new BrowserWindow({
+    width: 400,
+    height: 520,
+    show: false,
+    frame: false,
+    fullscreenable: false,
+    resizable: false,
+    movable: false,
+    hasShadow: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  })
+
+  menuBarWindow.on('blur', () => {
+    menuBarWindow?.hide()
+  })
+
+  if (isDev) {
+    menuBarWindow.loadURL('http://localhost:5173/menubar.html')
+  } else {
+    menuBarWindow.loadFile(join(__dirname, '../renderer/menubar.html'))
+  }
+}
+
+function toggleMenuBarWindow(): void {
+  if (!tray || !menuBarWindow) return
+
+  if (menuBarWindow.isVisible()) {
+    menuBarWindow.hide()
+    return
+  }
+
+  const trayBounds = tray.getBounds()
+  const windowBounds = menuBarWindow.getBounds()
+  const x = Math.round(trayBounds.x + trayBounds.width / 2 - windowBounds.width / 2)
+  const y = Math.round(trayBounds.y + trayBounds.height + 8)
+  menuBarWindow.setPosition(x, y, false)
+  menuBarWindow.show()
+  menuBarWindow.focus()
+}
+
+function createTrayImage() {
+  const svg = `
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="3" width="12" height="12" rx="4" fill="black"/>
+      <path d="M7 6.5H9.8C11.5 6.5 12.5 7.35 12.5 8.8C12.5 10.28 11.42 11.1 9.59 11.1H8.55V13H7V6.5ZM8.55 9.9H9.47C10.48 9.9 10.98 9.54 10.98 8.84C10.98 8.16 10.49 7.78 9.58 7.78H8.55V9.9Z" fill="white"/>
+    </svg>
+  `.trim()
+
+  const image = nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`)
+  image.setTemplateImage(true)
+  return image.resize({ width: 18, height: 18 })
+}
+
+function createTray(): void {
+  const image = createTrayImage()
+  tray = new Tray(image)
+  tray.setToolTip('Roost')
+  // Strong fallback for development: title text makes the status item visible
+  // even if the icon fails to render as expected.
+  tray.setTitle('Roost')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Open Roost', click: () => mainWindow?.show() },
+      { label: 'Open Menu Bar Panel', click: () => toggleMenuBarWindow() },
+      { type: 'separator' },
+      { label: 'Quit', click: () => app.quit() },
+    ])
+  )
+  tray.on('click', () => toggleMenuBarWindow())
+  console.log('[Roost] tray created')
+}
+
 // macOS: keep the app running even when all windows are closed
 // (standard macOS behaviour — app lives in the dock until Cmd+Q)
 app.on('window-all-closed', () => {
@@ -165,4 +247,6 @@ app.on('activate', () => {
 app.whenReady().then(() => {
   registerIpcHandlers(() => downloadedZipPath)
   createWindow()
+  createMenuBarWindow()
+  createTray()
 })
