@@ -1,7 +1,7 @@
 import { useRef } from "react"
 import {
   Bell, Monitor, Smartphone, CheckCircle2, Receipt,
-  ShoppingCart, Handshake, Moon, ChevronUp, ChevronDown,
+  ShoppingCart, Handshake, Moon, ChevronUp, ChevronDown, Pin,
 } from "lucide-react"
 import { motion, AnimatePresence } from "motion/react"
 import { Card, CardContent } from "../../components/ui/card"
@@ -307,6 +307,15 @@ export function Notifications() {
                 description="When a balance is settled between you"
                 checked={prefs.settlements_enabled}
                 onCheckedChange={(v) => set("settlements_enabled", v)}
+              />
+              <PrefRow
+                icon={Pin}
+                iconBg="bg-primary/10"
+                iconColor="text-primary"
+                title="Pinboard"
+                description="When someone leaves you or the home a new note"
+                checked={prefs.pinboard_enabled}
+                onCheckedChange={(v) => set("pinboard_enabled", v)}
               />
             </div>
           </CardContent>

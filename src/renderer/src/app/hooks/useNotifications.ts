@@ -15,6 +15,7 @@ const TYPE_PREF_KEY: Record<string, keyof NotificationPrefs> = {
   expense:       'expenses_enabled',
   shopping_item: 'shopping_enabled',
   settlement:    'settlements_enabled',
+  pinboard:      'pinboard_enabled',
 }
 
 // Returns true if the current time falls within [start, end) quiet hours.

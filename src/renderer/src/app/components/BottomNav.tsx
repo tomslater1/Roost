@@ -6,7 +6,7 @@ import {
   PiggyBank,
   CheckSquare,
   CalendarDays,
-  Utensils,
+  Pin,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
@@ -17,7 +17,7 @@ const navItems = [
   { path: "/budget", label: "Budget", icon: PiggyBank, dataOnboarding: "nav-budget" },
   { path: "/chores", label: "Chores", icon: CheckSquare, dataOnboarding: "nav-chores" },
   { path: "/calendar", label: "Calendar", icon: CalendarDays, dataOnboarding: "nav-calendar" },
-  { path: "/dishboard", label: "DishBoard", icon: Utensils, dataOnboarding: "" },
+  { path: "/pinboard", label: "Pinboard", icon: Pin, dataOnboarding: "" },
 ];
 
 export function BottomNav() {

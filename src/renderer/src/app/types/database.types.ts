@@ -384,6 +384,72 @@ export interface Database {
         }
         Relationships: []
       }
+      pinboard_note_acknowledgements: {
+        Row: {
+          note_id: string
+          user_id: string
+          seen_at: string
+        }
+        Insert: {
+          note_id: string
+          user_id: string
+          seen_at?: string
+        }
+        Update: {
+          note_id?: string
+          user_id?: string
+          seen_at?: string
+        }
+        Relationships: []
+      }
+      pinboard_notes: {
+        Row: {
+          id: string
+          home_id: string
+          author_id: string | null
+          content: string
+          link_type: 'room' | 'category' | 'chore' | 'expense' | 'shopping' | 'budget' | 'calendar' | null
+          link_label: string | null
+          linked_entity_id: string | null
+          target_scope: 'self' | 'partner' | 'everyone'
+          target_user_id: string | null
+          notify_on_create: boolean
+          expires_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          home_id: string
+          author_id?: string | null
+          content: string
+          link_type?: 'room' | 'category' | 'chore' | 'expense' | 'shopping' | 'budget' | 'calendar' | null
+          link_label?: string | null
+          linked_entity_id?: string | null
+          target_scope?: 'self' | 'partner' | 'everyone'
+          target_user_id?: string | null
+          notify_on_create?: boolean
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          home_id?: string
+          author_id?: string | null
+          content?: string
+          link_type?: 'room' | 'category' | 'chore' | 'expense' | 'shopping' | 'budget' | 'calendar' | null
+          link_label?: string | null
+          linked_entity_id?: string | null
+          target_scope?: 'self' | 'partner' | 'everyone'
+          target_user_id?: string | null
+          notify_on_create?: boolean
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {

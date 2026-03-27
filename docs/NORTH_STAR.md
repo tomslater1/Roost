@@ -206,7 +206,7 @@ Up to this point, Roost has been running on a shared Supabase project that I man
 - [x] Implement `electron-updater` with a GitHub Releases update server
 - [ ] Sign the app with a Developer ID certificate (required for Gatekeeper, even without App Store)
 - [x] **Set up a proper release pipeline** — See full process below.
-- [ ] Write a privacy policy (required for App Store and good practice)
+- [x] Write a privacy policy (required for App Store and good practice) — see `docs/PRIVACY_POLICY.md`
 
 ---
 
@@ -422,6 +422,29 @@ Things that were done quickly or need revisiting. Be honest here — this is not
 ---
 
 ## 📅 Session Log
+
+### Session 10 — 27 March 2026
+Pinboard replaced DishBoard and became a real shared household surface rather than a placeholder integration tab.
+
+**Pinboard (new feature):**
+- Replaced the DishBoard route/tab/page entirely with a new Pinboard page built to match the warm Roost design ethos
+- Added `pinboard_notes` table (migration 0021) with realtime, RLS, expiry dates, optional app-link metadata, and per-home shared notes
+- Added `usePinboard` hook + Zod schemas for fetching, creating, deleting, and live-syncing notes
+- Pinboard UI reworked so the board itself is the primary focus; note creation moved into a modal composer behind an Add note button
+
+**Pinboard usability improvements:**
+- Added note targeting: notes can be for yourself, your partner, or everyone in the home
+- Added optional notifications on note creation and wired pinboard notification preference into Settings → Notifications
+- Added note acknowledgements / seen state (migration 0022): recipients can mark a note as seen, the board shows seen counts and "needs your eyes" state
+- Added compact composer controls for recipient targeting, notify/silent mode, expiry, and note linking to app entities
+- Refined composer styling: bordered writing surface, cleaner notification selector, calmer hierarchy
+
+**Backend migrations:**
+- `0021_pinboard_notes.sql` — base pinboard notes table + realtime + RLS
+- `0022_pinboard_note_experience.sql` — target_scope, target_user_id, notify_on_create, acknowledgements table, and pinboard notifications trigger
+
+**Release prep:**
+- Version bumped to `v1.1.0` for a minor feature release (new user-facing functionality)
 
 ### Session 9 — 24 March 2026
 Full smoke test completed and signed off. App fully operational. All bugs found during testing were fixed before sign-off.

@@ -10,7 +10,7 @@ import { Expenses } from "./pages/Expenses";
 import { Budget } from "./pages/Budget";
 import { Chores } from "./pages/Chores";
 import { Calendar } from "./pages/Calendar";
-import { DishBoard } from "./pages/DishBoard";
+import { Pinboard } from "./pages/Pinboard";
 import { SettingsLayout } from "./pages/settings/SettingsLayout";
 import { Profile } from "./pages/settings/Profile";
 import { Household } from "./pages/settings/Household";
@@ -39,7 +39,7 @@ export const router = createHashRouter([
           { path: "budget", Component: Budget },
           { path: "chores", Component: Chores },
           { path: "calendar", Component: Calendar },
-          { path: "dishboard", Component: DishBoard },
+          { path: "pinboard", Component: Pinboard },
           {
             path: "settings",
             Component: SettingsLayout,
