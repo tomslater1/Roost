@@ -9,6 +9,7 @@ import { usePinboard } from '../hooks/usePinboard'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Card, CardContent } from '../components/ui/card'
+import appIcon from '../assets/app-icon.png'
 
 type Tab = 'shopping' | 'chores' | 'pins'
 
@@ -41,7 +42,7 @@ export function MenubarWidget() {
       <div className="min-h-screen bg-background text-foreground p-3">
         <Card>
           <CardContent className="p-5 text-center space-y-3">
-            <div className="mx-auto w-10 h-10 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-semibold">R</div>
+            <img src={appIcon} alt="Roost" className="mx-auto w-10 h-10 rounded-2xl object-cover" />
             <div>
               <p className="font-medium">Open Roost to sign in</p>
               <p className="text-sm text-muted-foreground mt-1">The menu bar widget shows your home once you're signed in.</p>

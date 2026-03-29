@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { homeSubscriptionSchema } from '@/lib/schemas/subscription'
 
 export const homeSchema = z.object({
   id: z.string().uuid(),
@@ -11,7 +12,7 @@ export const homeSchema = z.object({
   // Optional — added in migration 0016. Null means never fetched (no active subscription).
   calendar_last_fetched_at: z.string().datetime({ offset: true }).nullable().optional(),
   created_at: z.string().datetime({ offset: true }),
-})
+}).extend(homeSubscriptionSchema.shape)
 
 export const homeMemberSchema = z.object({
   id: z.string().uuid(),

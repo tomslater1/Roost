@@ -6,3 +6,16 @@ project_id = "kfpjfhzgtejhzqdurkuu"
 # verification at the gateway level is not needed (and would block Apple Calendar).
 [functions.calendar-feed]
 verify_jwt = false
+
+# redeem-promo does its own auth verification inside the function using the
+# access token passed in the request body. Gateway JWT verification must be
+# disabled so the function can receive the request first and apply the
+# app-specific membership + promo-code checks server-side.
+[functions.redeem-promo]
+verify_jwt = false
+
+# stripe-webhook is called directly by Stripe, which cannot send a Supabase JWT.
+# Signature verification is handled inside the function with STRIPE_WEBHOOK_SECRET,
+# so gateway JWT verification must be disabled.
+[functions.stripe-webhook]
+verify_jwt = false

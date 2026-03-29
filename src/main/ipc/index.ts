@@ -7,7 +7,8 @@ import { autoUpdater } from 'electron-updater'
 import { writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, dirname } from 'path'
-import { getBudgetInsights, normalizeText, suggestChores } from '../claude'
+import { getBudgetInsightsForNest, normalizeExpenseForNest, normalizeText, suggestChores } from '../claude'
+import { formatAmount, getStripeClient, getStripePriceIds, isStripePriceId, resolveStripePlan } from '../stripe'
 
 
 export function registerIpcHandlers(getZipPath: () => string | null): void {
@@ -26,6 +27,12 @@ export function registerIpcHandlers(getZipPath: () => string | null): void {
     normalizeText(text, context, categories).catch(() => ({ text }))
   )
 
+  ipcMain.handle(
+    'hazel:categorize-expense',
+    (_event, payload: { text: string; categories?: string[]; isNest: boolean }) =>
+      normalizeExpenseForNest(payload.text, payload.categories, payload.isNest).catch(() => ({ success: false, reason: 'api_error' as const }))
+  )
+
   // Generate chore suggestions for the household.
   // Accepts existing chore titles to avoid duplicates and the current month for seasonal context.
   // Returns an array of up to 5 suggestion strings, or [] on any error.
@@ -33,9 +40,112 @@ export function registerIpcHandlers(getZipPath: () => string | null): void {
     suggestChores(existingChores, month).catch(() => [])
   )
 
-  ipcMain.handle('budget:insights', (_event, input) =>
-    getBudgetInsights(input).catch(() => null)
+  ipcMain.handle('budget:insights', (_event, payload: { input: unknown; isNest: boolean }) =>
+    getBudgetInsightsForNest(payload.input as any, payload.isNest).catch(() => ({ success: false, reason: 'api_error' as const }))
   )
+
+  ipcMain.handle(
+    'stripe:create-checkout-session',
+    async (
+      _event,
+      payload: { priceId: string; homeId: string; customerEmail: string; stripeCustomerId?: string; hasUsedTrial?: boolean }
+    ) => {
+      const stripe = getStripeClient()
+      const plan = resolveStripePlan(payload.priceId)
+      const lineItem = isStripePriceId(payload.priceId)
+        ? { price: payload.priceId, quantity: 1 }
+        : {
+            price_data: {
+              currency: 'gbp',
+              unit_amount: plan.unitAmount,
+              recurring: { interval: plan.interval },
+              product_data: {
+                name: `Roost Nest (${plan.label === 'annual' ? 'Annual' : 'Monthly'})`,
+              },
+            },
+            quantity: 1,
+          }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [lineItem],
+        customer: payload.stripeCustomerId || undefined,
+        customer_email: payload.stripeCustomerId ? undefined : payload.customerEmail,
+        success_url: 'roost://subscription/success',
+        cancel_url: 'roost://subscription/cancel',
+        allow_promotion_codes: true,
+        metadata: { home_id: payload.homeId },
+        subscription_data: {
+          metadata: { home_id: payload.homeId },
+          ...(payload.hasUsedTrial ? {} : { trial_period_days: 14 }),
+        },
+      })
+
+      if (!session.url) throw new Error('Stripe checkout session did not return a URL')
+      return { url: session.url }
+    }
+  )
+
+  ipcMain.handle('stripe:create-portal-session', async (_event, payload: { stripeCustomerId: string }) => {
+    const stripe = getStripeClient()
+    const session = await stripe.billingPortal.sessions.create({
+      customer: payload.stripeCustomerId,
+      return_url: 'roost://subscription/success',
+    })
+    return { url: session.url }
+  })
+
+  ipcMain.handle('stripe:get-prices', async () => {
+    const ids = getStripePriceIds()
+    const hasRealIds = isStripePriceId(ids.monthly) && isStripePriceId(ids.annual)
+
+    if (!hasRealIds) {
+      return {
+        monthly: {
+          id: ids.monthly || 'monthly',
+          unitAmount: 499,
+          currency: 'gbp',
+          interval: 'month',
+          formattedAmount: '£4.99',
+          trialDays: 14,
+        },
+        annual: {
+          id: ids.annual || 'annual',
+          unitAmount: 3999,
+          currency: 'gbp',
+          interval: 'year',
+          formattedAmount: '£39.99',
+          trialDays: 14,
+        },
+      }
+    }
+
+    const stripe = getStripeClient()
+
+    const [monthly, annual] = await Promise.all([
+      stripe.prices.retrieve(ids.monthly),
+      stripe.prices.retrieve(ids.annual),
+    ])
+
+    return {
+      monthly: {
+        id: monthly.id,
+        unitAmount: monthly.unit_amount ?? 0,
+        currency: monthly.currency,
+        interval: monthly.recurring?.interval ?? 'month',
+        formattedAmount: formatAmount(monthly.unit_amount, monthly.currency),
+        trialDays: 14,
+      },
+      annual: {
+        id: annual.id,
+        unitAmount: annual.unit_amount ?? 0,
+        currency: annual.currency,
+        interval: annual.recurring?.interval ?? 'year',
+        formattedAmount: formatAmount(annual.unit_amount, annual.currency),
+        trialDays: 14,
+      },
+    }
+  })
 
   // Write a ready-made .ics string to a temp file and open it in the default calendar app.
   // The renderer builds the ICS content; this handler only does file I/O + shell open.

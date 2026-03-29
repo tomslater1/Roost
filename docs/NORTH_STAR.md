@@ -271,6 +271,62 @@ A friend who is not a developer can download the app, create an account, and inv
 
 ---
 
+### 🪺 Phase 4.5 — Roost Nest Freemium Foundation
+*Add the paid layer without compromising the warmth or the architecture.*
+
+Roost stays genuinely useful for free, but the complete experience now lives behind a household subscription called **Roost Nest**. This phase is about building the subscription foundation once, correctly: the subscription state lives on `homes`, Stripe writes via webhook, the app reads and gracefully degrades, and both the Mac app and future iOS app share the exact same source of truth.
+
+**Principles for this phase:**
+- Platform-agnostic subscription state on `homes`
+- Webhook-driven updates only — never trust the client to mark itself paid
+- Graceful free-tier fallback if Stripe is unavailable or status is unknown
+- RLS-consistent with the existing `get_user_home_id()` pattern
+- Zod-validated at every boundary
+
+**Free tier (Roost):**
+- Shopping list — full, unlimited, real-time
+- Expenses — current 30 days only
+- Chores — add, assign, complete (no recurrence)
+- Activity feed — always full
+- Pinboard — full access
+- Budget — current month only
+- Hazel — shopping normalisation and chore suggestions only
+- Real-time sync — always on
+- 14-day Nest trial on first signup
+
+**Roost Nest (£4.99/month or £39.99/year per household):**
+- Full expense history
+- Budget history and trends
+- Hazel expense auto-categorisation
+- Hazel budget insights and forecasting
+- Chore recurrence and streak tracking
+- Calendar sync (iCal export / subscription)
+- iOS app access when it launches
+- Early access to new features
+
+**Foundation work:**
+- [x] Add household subscription columns to `homes` and immutable `subscription_events` audit log
+- [x] Create subscription schemas and canonical `useSubscription()` hook
+- [x] Add `NestGate` as the primary UI primitive for feature gating
+- [x] Gate Hazel expense categorisation in the main process and budget insights in both renderer + IPC
+- [x] Filter free-tier expenses to the last 30 days only
+- [x] Restrict free-tier budget navigation to the current month
+- [x] Add secure Stripe IPC handlers for checkout, portal, and price lookup
+- [x] Scaffold Stripe webhook Edge Function for subscription-state sync
+- [x] Start new households on a 14-day Nest trial at the database layer
+
+**Still to complete after the foundation pass:**
+- [x] Polish the upgrade/manage-subscription UX in Settings and gated surfaces
+- [~] Add Stripe webhook secret + live price IDs in all required environments — env names are now documented in `.env.example` and `docs/STRIPE_SUBSCRIPTION_ROLLOUT.md`; still requires adding the real live values in each environment
+- [~] Run the subscription migration in the Supabase SQL editor — migration is ready (`0024_subscription.sql`) and documented in `docs/STRIPE_SUBSCRIPTION_ROLLOUT.md`; still requires running against the live project
+- [~] Deploy the Stripe webhook Edge Function and register the Stripe endpoint — function config now disables gateway JWT in `supabase/config.toml` and rollout steps are documented; still requires live deployment + Stripe dashboard setup
+- [~] Manually test the full trial → active → canceled lifecycle end to end — explicit test checklist added in `docs/STRIPE_SUBSCRIPTION_ROLLOUT.md`; still requires execution in Stripe/Supabase
+
+**Definition of done:**
+Subscription state is household-level, webhook-driven, reflected live in the UI, and safe to reuse for iOS without redesigning the model. Free users keep a generous product. Nest unlocks paid features cleanly and warmly.
+
+---
+
 ### 🌐 Phase 5 — Website Distribution & Frictionless Download
 *Make Roost feel trustworthy, obvious, and easy to install for a completely non-technical couple.*
 
@@ -401,6 +457,8 @@ Things that were done quickly or need revisiting. Be honest here — this is not
 
 **Database types are hand-written** — `src/renderer/src/types/database.types.ts` was written by hand to match the migration. It will drift from the real schema over time. In Phase 2, set up `npx supabase gen types typescript` as part of the build process to keep it in sync automatically. (Phase 2 technical task.)
 
+**Stripe Tax** — Enable Stripe Tax in the Stripe dashboard before going live with real payments.
+
 ### Architectural decisions that should not change
 
 **Zod as single source of truth** — TypeScript types are derived from Zod schemas, never written separately. Do not break this pattern.
@@ -434,6 +492,83 @@ Things that were done quickly or need revisiting. Be honest here — this is not
 ---
 
 ## 📅 Session Log
+
+### Session 16 — 28 March 2026
+Prepared the Roost Nest release for the GitHub draft-release pipeline and verified the desktop build path end to end.
+
+**Release pipeline work:**
+- Fixed the Electron Builder macOS icon path to use `resources/Icon.icns`, matching the real file on disk and the runtime icon loader
+- Split the build scripts so `build:app` runs the Electron/Vite production bundle and `release` publishes from that clean app build path
+- Confirmed `npm run typecheck`, `npm run build:app`, and the full local `npm run build` DMG flow all complete successfully
+
+**Release contents in this version:**
+- Roost Nest freemium foundation, Stripe desktop bridge, webhook scaffold, and subscription settings flows are now release-ready in the repo
+- Lifetime promo-code redemption is wired end to end with dedicated UI and server-side validation
+- Budget analytics and expense-history gating now degrade gracefully for free households with warm Nest upgrade prompts
+
+### Session 13 — 28 March 2026
+Laid the Roost Nest freemium foundation: subscription state now has a home in the data model, the first paid gates are wired, and Stripe has a secure desktop-side integration path.
+
+**Subscription architecture:**
+- Added a new subscription migration (`0024_subscription.sql`) with household-level columns on `homes` and an immutable `subscription_events` audit log
+- Extended the latest `create_home_for_user()` function so every new household starts on a 14-day Nest trial at the database layer, not in the UI
+- Added subscription Zod schemas and extended `homeSchema` so the app can read subscription state safely even during rollout
+
+**Canonical gating primitives:**
+- Added `useSubscription()` as the single source of truth for Nest access checks (`canAccess(feature)`)
+- Added `NestGate` as the shared warm upgrade wrapper for soft/hard feature gating
+
+**First gated features:**
+- Expenses now filter free households to the last 30 days only, with a Nest upgrade card beneath the visible list
+- Budget month navigation now stays on the current month for free households
+- Hazel expense categorisation is now gated in the main process (renderer cannot unlock it by itself)
+- Hazel budget insights are gated in both renderer and IPC, with a soft preview-style Nest gate in Budget Analytics
+
+**Stripe foundation:**
+- Installed the Stripe SDK and added a secure main-process Stripe bridge for checkout session creation, customer portal session creation, and live price lookup
+- Added preload + `window.api` typing for Stripe and gated Hazel IPC calls
+- Added a Stripe webhook Edge Function scaffold that writes subscription events and updates the owning home
+- Added Stripe environment variables to `.env.example`
+
+**Verification:**
+- `tsc --noEmit --pretty false` runs cleanly after the foundation pass
+- `npm run build` progresses through the Electron/Vite production pipeline after the subscription changes
+
+### Session 14 — 28 March 2026
+Built the first visible Roost Nest subscription UI so the freemium system can be seen, exercised, and tested from inside the app.
+
+**Subscription UX surfaces:**
+- Added a new **Subscription** tab to Settings with distinct trialing, active, free, past-due, and canceled states
+- Added a global `UpgradeModal` with annual/monthly plan selection, warm feature list, Stripe checkout redirect state, and graceful retry handling
+- Added a slim `TrialBanner` beneath the TopBar that appears only when the trial is within 7 days of ending
+
+**Gating refinements:**
+- `NestGate` CTAs now open the shared Upgrade modal rather than showing inert buttons
+- Expense-history upsell copy at the bottom of the Expenses list now matches the new subscription tone of voice
+- Budget Analytics now uses a clearer Nest upsell message for Hazel insights
+- Free-tier previous-month budget navigation now invites the user to upgrade rather than failing silently, with hover text explaining why
+
+**Subtle shell signals:**
+- Added a small past-due warning indicator to the TopBar notification bell so payment issues are visible without feeling loud or alarming
+- Wired the Upgrade modal globally into the authenticated shell so any gate or settings surface can open the same flow
+
+### Session 15 — 28 March 2026
+Added lifetime promo-code redemption for Roost Nest so Thomas can grant permanent Nest access without Stripe.
+
+**Lifetime access foundation:**
+- Added migration `0025_lifetime_access.sql` to introduce `promo_codes`, seed `ROOST-TEST`, and extend `homes.subscription_status` to include `lifetime`
+- Extended the subscription schemas with promo code models and promo redemption response/error types
+- Updated `useSubscription()` so lifetime access counts as Nest everywhere and unlocks all gated features
+
+**Server-side redemption flow:**
+- Added Supabase Edge Function `redeem-promo` to validate promo codes server-side, verify the user belongs to the target home, upgrade the home to lifetime Nest, and mark the code redeemed
+- Kept the flow idempotent so homes already on lifetime access return a safe response rather than corrupting state
+
+**App-side redemption UX:**
+- Added `useRedeemPromo()` hook to call the Edge Function, validate the response with Zod, and refresh the home query immediately after success
+- Added a promo code redemption section to the bottom of the Subscription settings page with warm success/error copy and uppercase code entry
+- Added a dedicated lifetime subscription state in Settings with a warm “Lifetime” Nest presentation and no billing controls
+- Promo code redemption now works end-to-end after aligning function auth with the repo’s known-good Edge Function pattern and disabling gateway JWT verification for `redeem-promo`
 
 ### Session 12 — 27 March 2026
 Major Budget section rework: split into two tabs (Analytics + Categories), added forward-looking month navigation, Hazel-powered forecasting, and richer visual analytics.

@@ -11,6 +11,9 @@ import { useHome } from "../hooks/useHome";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { OfflineBanner } from "./OfflineBanner";
 import { UpdateBanner } from "./UpdateBanner";
+import { TrialBanner } from "./subscription/TrialBanner";
+import { UpgradeModal } from "./subscription/UpgradeModal";
+import appIcon from "@/assets/app-icon.png";
 
 function QuickAddModalsContainer() {
   const { shoppingOpen, expenseOpen, choreOpen, closeAll, openShopping, openExpense, openChore } = useQuickAdd();
@@ -38,11 +41,11 @@ export function AppShell() {
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       >
         <motion.div
-          className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-medium text-lg select-none"
+          className="w-10 h-10 rounded-xl overflow-hidden select-none"
           animate={{ scale: [1, 1.06, 1] }}
           transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
         >
-          R
+          <img src={appIcon} alt="Roost" className="w-full h-full object-cover" />
         </motion.div>
         <p className="text-sm text-muted-foreground">Loading…</p>
       </motion.div>
@@ -64,6 +67,9 @@ export function AppShell() {
       {/* Update banner — slides in below offline banner when an update is available */}
       <UpdateBanner />
 
+      {/* Trial banner — slim, persistent, and part of the layout */}
+      <TrialBanner />
+
       {/* Main content area - scrollable */}
       <main className="flex-1 overflow-y-auto pb-2">
         <ErrorBoundary>
@@ -82,6 +88,9 @@ export function AppShell() {
 
       {/* Global quick-add modals — opened by shortcuts or Dashboard buttons */}
       <QuickAddModalsContainer />
+
+      {/* Global subscription upgrade modal */}
+      <UpgradeModal />
     </div>
   );
 }

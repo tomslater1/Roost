@@ -11,15 +11,20 @@ import { useRealtime } from './useRealtime'
 import { z } from 'zod'
 import { expenseSchema, expenseWithSplitsSchema, type ExpenseWithSplits, type CreateExpense } from '@/lib/schemas/expenses'
 import { customCategorySchema } from '@/lib/schemas/budgets'
-import { normalizeInput } from '@/lib/normalizeInput'
+import { categorizeExpenseWithGate } from '@/lib/normalizeInput'
 import { mergeCategories } from '@/lib/categories'
+import { useSubscription } from './useSubscription'
+import { subDays } from 'date-fns'
 
 const QUERY_KEY = 'expenses'
 
 export function useExpenses() {
   const { user } = useAuthContext()
   const { home, members } = useHome()
+  const { canAccess } = useSubscription()
   const queryClient = useQueryClient()
+  const hasExpenseHistory = canAccess('expense_history')
+  const canUseHazelCategorisation = canAccess('hazel_categorisation')
 
   const invalidate = useCallback(
     () => queryClient.invalidateQueries({ queryKey: [QUERY_KEY, home?.id] }),
@@ -50,11 +55,18 @@ export function useExpenses() {
     queryKey: [QUERY_KEY, home?.id],
     enabled: !!home?.id,
     queryFn: async (): Promise<ExpenseWithSplits[]> => {
-      const { data, error } = await supabase
+      const dateFilter = hasExpenseHistory ? null : subDays(new Date(), 30)
+      let request = supabase
         .from('expenses')
         .select('*, expense_splits(*)')
         .eq('home_id', home!.id)
         .order('date', { ascending: false })
+
+      if (dateFilter) {
+        request = request.gte('date', dateFilter.toISOString().split('T')[0])
+      }
+
+      const { data, error } = await request
 
       if (error) throw error
       return z.array(expenseWithSplitsSchema).parse(data)
@@ -132,7 +144,11 @@ export function useExpenses() {
   const addExpense = useMutation({
     mutationFn: async (expense: CreateExpense) => {
       // Pass the household's category names so Hazel assigns from what the user actually has.
-      const { text: title, category: rawSuggested } = await normalizeInput(expense.title, 'expense', allCategoryNames).catch(() => ({ text: expense.title, category: undefined }))
+      const { text: title, category: rawSuggested } = await categorizeExpenseWithGate(
+        expense.title,
+        allCategoryNames,
+        canUseHazelCategorisation
+      ).catch(() => ({ text: expense.title, category: undefined, gated: false }))
       // Hard-clamp Hazel's output to the household's known categories.
       // If she returns something not in the list (e.g. an old preset the user hasn't added),
       // fall back to 'Other' which is always present as a built-in.
@@ -266,6 +282,8 @@ export function useExpenses() {
 
   return {
     expenses: query.data ?? [],
+    hasFullHistory: hasExpenseHistory,
+    historyCutoffDate: hasExpenseHistory ? null : subDays(new Date(), 30),
     isLoading: query.isLoading,
     isAdding: addExpense.isPending,
     isError: query.isError,

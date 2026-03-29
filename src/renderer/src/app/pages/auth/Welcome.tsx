@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "motion/react"
 import { ArrowLeft, CheckCircle2, XCircle, RotateCcw } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useAuthContext } from "@/context/AuthContext"
+import appIcon from "@/assets/app-icon.png"
 
 type View = "main" | "signup"
 
@@ -25,7 +26,7 @@ function GoogleIcon() {
 }
 
 export function Welcome() {
-  const { loading, googlePending } = useAuthContext()
+  const { loading, googlePending, oauthError, clearOauthError } = useAuthContext()
   const [view, setView] = useState<View>("main")
   const [isLoading, setIsLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
@@ -59,6 +60,7 @@ export function Welcome() {
 
   const handleGoogleAuth = async () => {
     setGoogleLoading(true)
+    clearOauthError()
     setError(null)
     try {
       await signInWithGoogle()
@@ -135,11 +137,11 @@ export function Welcome() {
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         >
           <motion.div
-            className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-medium text-2xl shadow-md select-none"
+            className="w-14 h-14 select-none"
             animate={{ scale: [1, 1.06, 1] }}
             transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
           >
-            R
+            <img src={appIcon} alt="Roost" className="w-full h-full" />
           </motion.div>
           <div className="text-center space-y-1">
             <p className="text-sm font-medium text-foreground">
@@ -165,9 +167,7 @@ export function Welcome() {
           transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
           className="flex justify-center mb-6"
         >
-          <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-medium text-2xl shadow-md select-none">
-            R
-          </div>
+          <img src={appIcon} alt="Roost" className="w-14 h-14 select-none" />
         </motion.div>
 
         {/* Heading — crossfades between views */}
@@ -208,6 +208,21 @@ export function Welcome() {
               transition={{ duration: 0.3, ease }}
               className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-4"
             >
+              {/* OAuth error (e.g. Supabase server_error on Google callback) */}
+              <AnimatePresence>
+                {oauthError && (
+                  <motion.p
+                    key="oauth-err"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="text-sm text-destructive overflow-hidden"
+                  >
+                    Google sign-in failed: {oauthError}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
               {/* Google — primary CTA */}
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }} transition={spring}>
                 <Button

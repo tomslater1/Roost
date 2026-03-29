@@ -99,6 +99,10 @@ export interface HazelResult {
   category?: string
 }
 
+export type HazelResponse<T> =
+  | { success: true; data: T }
+  | { success: false; reason: 'not_nest' | 'api_error' }
+
 export interface BudgetInsightInput {
   monthLabel: string
   totalSpent: number
@@ -274,5 +278,33 @@ export async function getBudgetInsights(input: BudgetInsightInput): Promise<Budg
     return null
   } catch {
     return null
+  }
+}
+
+export async function normalizeExpenseForNest(
+  rawText: string,
+  categories: string[] | undefined,
+  isNest: boolean
+): Promise<HazelResponse<HazelResult>> {
+  if (!isNest) return { success: false, reason: 'not_nest' }
+  try {
+    const result = await normalizeText(rawText, 'expense', categories)
+    return { success: true, data: result }
+  } catch {
+    return { success: false, reason: 'api_error' }
+  }
+}
+
+export async function getBudgetInsightsForNest(
+  input: BudgetInsightInput,
+  isNest: boolean
+): Promise<HazelResponse<BudgetInsights>> {
+  if (!isNest) return { success: false, reason: 'not_nest' }
+  try {
+    const result = await getBudgetInsights(input)
+    if (!result) return { success: false, reason: 'api_error' }
+    return { success: true, data: result }
+  } catch {
+    return { success: false, reason: 'api_error' }
   }
 }

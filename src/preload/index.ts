@@ -29,26 +29,45 @@ contextBridge.exposeInMainWorld('api', {
   normalize: (text: string, context: string, categories?: string[]) =>
     ipcRenderer.invoke('normalize', text, context, categories),
 
+  hazelCategorizeExpense: (payload: { text: string; categories?: string[]; isNest: boolean }) =>
+    ipcRenderer.invoke('hazel:categorize-expense', payload),
+
   // Generate up to 5 chore suggestions, avoiding duplicates from existingChores.
   // month is the current month name (e.g. "March") for seasonal context.
   suggestChores: (existingChores: string[], month: string) =>
     ipcRenderer.invoke('chore:suggest', existingChores, month),
 
-  budgetInsights: (input: {
-    monthLabel: string
-    totalSpent: number
-    totalBudget: number
-    projectedMonthEnd: number
-    remaining: number
-    overspend: number
-    topCategories: Array<{
-      name: string
-      spend: number
-      limit: number | null
-      pct: number
-      recurringTotal: number
-    }>
-  }) => ipcRenderer.invoke('budget:insights', input),
+  budgetInsights: (payload: {
+    input: {
+      monthLabel: string
+      totalSpent: number
+      totalBudget: number
+      projectedMonthEnd: number
+      remaining: number
+      overspend: number
+      topCategories: Array<{
+        name: string
+        spend: number
+        limit: number | null
+        pct: number
+        recurringTotal: number
+      }>
+    }
+    isNest: boolean
+  }) => ipcRenderer.invoke('budget:insights', payload),
+
+  stripeCreateCheckoutSession: (payload: {
+    priceId: string
+    homeId: string
+    customerEmail: string
+    stripeCustomerId?: string
+    hasUsedTrial?: boolean
+  }) => ipcRenderer.invoke('stripe:create-checkout-session', payload),
+
+  stripeCreatePortalSession: (payload: { stripeCustomerId: string }) =>
+    ipcRenderer.invoke('stripe:create-portal-session', payload),
+
+  stripeGetPrices: () => ipcRenderer.invoke('stripe:get-prices'),
 
   // Write a ready-made .ics string to a temp file and open in the default calendar app.
   exportCalendar: (icsContent: string) =>

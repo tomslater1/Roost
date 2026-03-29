@@ -19,6 +19,7 @@ import { Rooms } from "./pages/settings/Rooms";
 import { Account } from "./pages/settings/Account";
 import { Hazel } from "./pages/settings/Hazel";
 import { Notifications } from "./pages/settings/Notifications";
+import { Subscription } from "./pages/settings/Subscription";
 
 export const router = createHashRouter([
   {
@@ -52,6 +53,7 @@ export const router = createHashRouter([
               { path: "hazel", Component: Hazel },
               { path: "notifications", Component: Notifications },
               { path: "account", Component: Account },
+              { path: "subscription", Component: Subscription },
             ],
           },
         ],

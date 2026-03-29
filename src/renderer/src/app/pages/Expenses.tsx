@@ -20,12 +20,13 @@ import { AnimatedPage } from "../components/AnimatedPage";
 import { EmptyState } from "../components/EmptyState";
 import { ListSkeleton } from "../components/LoadingSkeleton";
 import { listItemVariants } from "../utils/animations";
+import { NestGate } from "../components/ui/NestGate";
 
 const ease = [0.43, 0.13, 0.23, 0.96] as const
 const spring = { type: "spring" as const, stiffness: 400, damping: 17 }
 
 export function Expenses() {
-  const { expenses, currentUser, partnerName, addExpense, deleteExpense, getBalance, settlements, allCategories, isExpensesLoading, isAddingExpense } = useApp();
+  const { expenses, currentUser, partnerName, addExpense, deleteExpense, getBalance, settlements, allCategories, isExpensesLoading, isAddingExpense, hasFullExpenseHistory, expenseHistoryCutoffDate } = useApp();
   const [searchParams] = useSearchParams();
 
   const [showAddExpense, setShowAddExpense] = useState(false);
@@ -439,6 +440,18 @@ export function Expenses() {
                 ))}
               </AnimatePresence>
             </div>
+            {!isExpensesLoading && !hasFullExpenseHistory && expenseHistoryCutoffDate && expenses.length > 0 && (
+              <div className="mt-4">
+                <NestGate
+                  feature="expense_history"
+                  variant="hard"
+                  promptText={`Expenses before ${expenseHistoryCutoffDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} are part of Roost Nest. Your data is safe — upgrade to see everything.`}
+                  promptCta="Try Nest free →"
+                >
+                  <div />
+                </NestGate>
+              </div>
+            )}
           </CardContent>
         </Card>
 

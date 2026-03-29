@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Bell, Settings, LogOut, Search } from "lucide-react"
+import { Bell, AlertCircle, Settings, LogOut, Search } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 
 import { Button } from "./ui/button";
@@ -12,12 +12,15 @@ import { useApp } from "../context/AppContext";
 import { useAuthContext } from "@/context/AuthContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
+import { useSubscription } from "@/hooks/useSubscription";
+import appIcon from "@/assets/app-icon.png";
 
 export function TopBar() {
   const { currentMember, notifications } = useApp();
   const { user } = useAuthContext();
   const { signOut } = useAuth();
   const { prefs } = useNotificationPreferences();
+  const { status, isNest } = useSubscription();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -49,9 +52,7 @@ export function TopBar() {
     <header className="h-14 border-b border-border flex items-center justify-between px-6 relative bg-background">
       {/* Left — logo */}
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-bold">
-          R
-        </div>
+        <img src={appIcon} alt="Roost" className="w-8 h-8 rounded-lg object-cover" />
         <span className="font-semibold text-lg">Roost</span>
       </div>
 
@@ -106,6 +107,18 @@ export function TopBar() {
 
         <ThemeToggle />
 
+        <div
+          className={[
+            "hidden sm:inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium border",
+            isNest
+              ? "bg-primary/12 text-primary border-primary/20"
+              : "bg-muted text-muted-foreground border-border/70",
+          ].join(' ')}
+          title={isNest ? 'Roost Nest active' : 'Free plan'}
+        >
+          {isNest ? 'Nest' : 'Free'}
+        </div>
+
         {/* Notification bell */}
         <AnimatePresence>
           {prefs.in_app_enabled && (
@@ -124,6 +137,11 @@ export function TopBar() {
                 data-onboarding-trigger="notifications"
               >
                 <Bell className="w-4 h-4" />
+                {status === 'past_due' && (
+                  <span className="absolute -bottom-0.5 -left-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-warning text-foreground">
+                    <AlertCircle className="w-2.5 h-2.5" />
+                  </span>
+                )}
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
                     {unreadCount > 9 ? "9+" : unreadCount}

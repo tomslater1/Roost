@@ -34,6 +34,7 @@ import {
 } from '@/lib/categories'
 import { normalizeInput } from '@/lib/normalizeInput'
 import type { ExpenseWithSplits } from '@/lib/schemas/expenses'
+import { useSubscription } from './useSubscription'
 
 const BUDGETS_KEY = 'budgets'
 const CUSTOM_CATS_KEY = 'custom-categories'
@@ -58,21 +59,27 @@ export interface BudgetSummary {
 export function useBudget({ expenses }: { expenses: ExpenseWithSplits[] }) {
   const { user } = useAuthContext()
   const { home } = useHome()
+  const { canAccess } = useSubscription()
   const queryClient = useQueryClient()
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date())
+  const hasBudgetHistory = canAccess('budget_insights')
 
   const monthKey = format(startOfMonth(selectedMonth), 'yyyy-MM-dd')
   const isCurrentMonth = isSameMonth(selectedMonth, new Date())
   const monthsAhead = differenceInCalendarMonths(startOfMonth(selectedMonth), startOfMonth(new Date()))
-  const canGoForward = monthsAhead < 12
+  const canGoForward = hasBudgetHistory && monthsAhead < 12
 
-  const prevMonth = useCallback(() => setSelectedMonth((m) => subMonths(m, 1)), [])
+  const prevMonth = useCallback(() => {
+    if (!hasBudgetHistory) return
+    setSelectedMonth((m) => subMonths(m, 1))
+  }, [hasBudgetHistory])
   const nextMonth = useCallback(
     () => setSelectedMonth((m) => {
+      if (!hasBudgetHistory) return m
       const next = addMonths(m, 1)
       return differenceInCalendarMonths(startOfMonth(next), startOfMonth(new Date())) <= 12 ? next : m
     }),
-    []
+    [hasBudgetHistory]
   )
 
   // ── Queries ───────────────────────────────────────────────────────────────
@@ -298,6 +305,7 @@ export function useBudget({ expenses }: { expenses: ExpenseWithSplits[] }) {
     prevMonth,
     nextMonth,
     isCurrentMonth,
+    hasBudgetHistory,
     canGoForward,
     monthsAhead,
     upsertBudget,

@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "motion/react"
 import { Home, Users, LogOut } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useAuthContext } from "@/context/AuthContext"
+import appIcon from "@/assets/app-icon.png"
 
 type Mode = "create" | "join"
 
@@ -78,9 +79,7 @@ export function Setup() {
           transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
           className="flex justify-center mb-6"
         >
-          <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-medium text-2xl shadow-md select-none">
-            R
-          </div>
+          <img src={appIcon} alt="Roost" className="w-14 h-14 rounded-xl object-cover shadow-md select-none" />
         </motion.div>
 
         {/* Heading */}

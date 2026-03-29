@@ -28,3 +28,18 @@ export async function normalizeInput(text: string, context: HazelContext, catego
     return { text }
   }
 }
+
+export async function categorizeExpenseWithGate(
+  text: string,
+  categories: string[] | undefined,
+  isNest: boolean
+): Promise<{ text: string; category?: string; gated: boolean }> {
+  if (!text.trim() || !isHazelEnabled('expense')) return { text, gated: false }
+  try {
+    const result = await window.api.hazelCategorizeExpense({ text, categories, isNest })
+    if (!result.success) return { text, gated: result.reason === 'not_nest' }
+    return { ...result.data, gated: false }
+  } catch {
+    return { text, gated: false }
+  }
+}

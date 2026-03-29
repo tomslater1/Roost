@@ -30,6 +30,15 @@ let downloadedZipPath: string | null = null
 // If a deep link arrives before the window is ready, queue it here.
 let pendingDeepLink: string | null = null
 
+function getPackagedResourcePath(fileName: string): string {
+  return isDev ? join(process.cwd(), 'resources', fileName) : join(process.resourcesPath, fileName)
+}
+
+function getAppIcon(): Electron.NativeImage {
+  const icon = nativeImage.createFromPath(getPackagedResourcePath('Icon.icns'))
+  return icon.isEmpty() ? nativeImage.createEmpty() : icon
+}
+
 // Send a deep link URL to the renderer when it's ready.
 function handleDeepLink(url: string): void {
   if (mainWindow?.webContents) {
@@ -96,6 +105,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     title: 'Roost',
+    icon: getAppIcon(),
     // macOS-style title bar — hides the default title bar chrome
     // so the window looks clean and native
     titleBarStyle: 'hiddenInset',
@@ -161,6 +171,7 @@ function createMenuBarWindow(): void {
     hasShadow: true,
     alwaysOnTop: true,
     skipTaskbar: true,
+    icon: getAppIcon(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
@@ -198,16 +209,9 @@ function toggleMenuBarWindow(): void {
 }
 
 function createTrayImage() {
-  const svg = `
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="3" width="12" height="12" rx="4" fill="black"/>
-      <path d="M7 6.5H9.8C11.5 6.5 12.5 7.35 12.5 8.8C12.5 10.28 11.42 11.1 9.59 11.1H8.55V13H7V6.5ZM8.55 9.9H9.47C10.48 9.9 10.98 9.54 10.98 8.84C10.98 8.16 10.49 7.78 9.58 7.78H8.55V9.9Z" fill="white"/>
-    </svg>
-  `.trim()
-
-  const image = nativeImage.createFromDataURL(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`)
-  image.setTemplateImage(true)
-  return image.resize({ width: 18, height: 18 })
+  const image = getAppIcon().resize({ width: 18, height: 18 })
+  image.setTemplateImage(false)
+  return image
 }
 
 function createTray(): void {
@@ -245,6 +249,13 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin') {
+    const dockIcon = getAppIcon()
+    if (!dockIcon.isEmpty()) {
+      app.dock.setIcon(dockIcon)
+    }
+  }
+
   registerIpcHandlers(() => downloadedZipPath)
   createWindow()
   createMenuBarWindow()

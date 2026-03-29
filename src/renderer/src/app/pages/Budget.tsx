@@ -12,6 +12,8 @@ import {
   ChevronRight,
   CircleHelp,
   ListFilter,
+  Lock,
+  Crown,
   PiggyBank,
   Receipt,
   Repeat,
@@ -47,6 +49,8 @@ import { useBudget } from "@/hooks/useBudget";
 import { useExpenses } from "@/hooks/useExpenses";
 import { COLOR_CLASSES, getCategoryMeta, type Category } from "@/lib/categories";
 import type { ExpenseWithSplits } from "@/lib/schemas/expenses";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useSubscriptionUi } from "@/context/SubscriptionUiContext";
 
 const ease = [0.43, 0.13, 0.23, 0.96] as const;
 const spring = { type: "spring" as const, stiffness: 400, damping: 17 };
@@ -72,11 +76,14 @@ export function Budget() {
   const navigate = useNavigate();
   const expensesHook = useExpenses();
   const budgetHook = useBudget({ expenses: expensesHook.expenses });
+  const { canAccess, hasUsedTrial } = useSubscription();
+  const { openUpgrade } = useSubscriptionUi();
 
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"analytics" | "categories">("analytics");
   const [hazelInsight, setHazelInsight] = useState<HazelBudgetInsight | null>(null);
   const [hazelLoading, setHazelLoading] = useState(false);
+  const canUseHazelBudgetInsights = canAccess('hazel_budget_insights');
 
   const isLoading = budgetHook.isLoading || expensesHook.isLoading;
 
@@ -281,8 +288,9 @@ export function Budget() {
   const hazelKey = `hazel-budget|${format(budgetHook.selectedMonth, "yyyy-MM")}|${totalThisMonth.toFixed(2)}|${totalBudget.toFixed(2)}|${analyticsTopCategories.map((r) => r.category.name + r.spend.toFixed(2)).join(",")}`;
 
   useEffect(() => {
-    if (activeTab !== "analytics" || isLoading || analyticsTopCategories.length === 0) {
+    if (activeTab !== "analytics" || isLoading || analyticsTopCategories.length === 0 || !canUseHazelBudgetInsights) {
       setHazelInsight(null);
+      setHazelLoading(false);
       return;
     }
 
@@ -306,22 +314,25 @@ export function Budget() {
 
     window.api
       .budgetInsights({
-        monthLabel: format(budgetHook.selectedMonth, "MMMM yyyy"),
-        totalSpent: totalThisMonth,
-        totalBudget,
-        projectedMonthEnd,
-        remaining,
-        overspend,
-        topCategories: analyticsTopCategories.map((row) => ({
-          name: row.category.name,
-          spend: row.spend,
-          limit: row.limit,
-          pct: row.pct,
-          recurringTotal: row.recurringTotal,
-        })),
+        isNest: true,
+        input: {
+          monthLabel: format(budgetHook.selectedMonth, "MMMM yyyy"),
+          totalSpent: totalThisMonth,
+          totalBudget,
+          projectedMonthEnd,
+          remaining,
+          overspend,
+          topCategories: analyticsTopCategories.map((row) => ({
+            name: row.category.name,
+            spend: row.spend,
+            limit: row.limit,
+            pct: row.pct,
+            recurringTotal: row.recurringTotal,
+          })),
+        },
       })
       .then((result) => {
-        if (!cancelled && result) {
+        if (!cancelled && result.success) {
           // Persist to localStorage so re-opening the page doesn't re-call Claude.
           // Prune old Hazel budget cache entries to keep localStorage tidy.
           try {
@@ -331,11 +342,11 @@ export function Budget() {
                 localStorage.removeItem(k);
               }
             }
-            localStorage.setItem(hazelKey, JSON.stringify(result));
+            localStorage.setItem(hazelKey, JSON.stringify(result.data));
           } catch {
             // localStorage full or unavailable — not critical.
           }
-          setHazelInsight(result);
+          setHazelInsight(result.data);
         } else if (!cancelled) {
           setHazelInsight(null);
         }
@@ -351,7 +362,7 @@ export function Budget() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hazelKey, activeTab, isLoading]);
+  }, [hazelKey, activeTab, isLoading, canUseHazelBudgetInsights]);
 
   const maxTrendValue = Math.max(...monthlyTrendData.flatMap((item) => [item.spend, item.budget]), 1);
   const maxCategorySpend = Math.max(...analyticsTopCategories.map((row) => row.spend), 1);
@@ -378,13 +389,27 @@ export function Budget() {
       </div>
 
       <div className="flex items-center justify-center gap-4">
-        <Button variant="ghost" size="icon" onClick={budgetHook.prevMonth}>
-          <ChevronLeft className="w-4 h-4" />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={budgetHook.hasBudgetHistory ? budgetHook.prevMonth : openUpgrade}
+          disabled={false}
+          title={!budgetHook.hasBudgetHistory ? 'Unlock budget history with Roost Nest' : undefined}
+          className={!budgetHook.hasBudgetHistory ? 'opacity-50' : ''}
+        >
+          {budgetHook.hasBudgetHistory
+            ? <ChevronLeft className="w-4 h-4" />
+            : <Lock className="w-3.5 h-3.5" />
+          }
         </Button>
         <div className="text-center">
           <h2 className="text-lg font-medium min-w-[180px]">{format(budgetHook.selectedMonth, "MMMM yyyy")}</h2>
           <p className="text-xs text-muted-foreground">
-            {budgetHook.monthsAhead > 0 ? `${budgetHook.monthsAhead} month${budgetHook.monthsAhead === 1 ? "" : "s"} ahead` : "Current or past month"}
+            {budgetHook.hasBudgetHistory
+              ? budgetHook.monthsAhead > 0
+                ? `${budgetHook.monthsAhead} month${budgetHook.monthsAhead === 1 ? "" : "s"} ahead`
+                : "Current or past month"
+              : "Current month"}
           </p>
         </div>
         <Button variant="ghost" size="icon" onClick={budgetHook.nextMonth} disabled={!budgetHook.canGoForward}>
@@ -489,7 +514,7 @@ export function Budget() {
 
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Total spent", value: `£${totalThisMonth.toFixed(2)}`, sub: `Shared & personal · ${monthExpenses.length} ${monthExpenses.length === 1 ? "expense" : "expenses"}`, icon: Receipt, iconBg: "bg-primary/10", iconColor: "text-primary", delay: 0.02 },
+              { label: "Total spent", value: `£${totalThisMonth.toFixed(2)}`, sub: `Shared & personal · ${monthExpenses.length} ${monthExpenses.length === 1 ? "expense" : "expenses"}`, icon: Receipt, iconBg: "bg-primary/10", iconColor: "text-primary", delay: 0.02, nestGated: false },
               {
                 label: "vs last month",
                 value: monthTrend !== null ? `${monthTrend > 0 ? "+" : ""}${monthTrend.toFixed(0)}%` : "—",
@@ -500,6 +525,7 @@ export function Budget() {
                 valueColor: monthTrend !== null && monthTrend > 10 ? "text-destructive" : monthTrend !== null && monthTrend < -10 ? "text-success" : undefined,
                 cardCls: monthTrend !== null && monthTrend > 10 ? "bg-destructive/8 border-destructive/25" : monthTrend !== null && monthTrend < -10 ? "bg-success/8 border-success/25" : "",
                 delay: 0.08,
+                nestGated: true,
               },
               {
                 label: "Recurring commitments",
@@ -509,21 +535,43 @@ export function Budget() {
                 iconBg: "bg-muted",
                 iconColor: "text-muted-foreground",
                 delay: 0.14,
+                nestGated: false,
               },
-            ].map(({ label, value, sub, icon: Icon, iconBg, iconColor, valueColor, cardCls, delay }) => (
+            ].map(({ label, value, sub, icon: Icon, iconBg, iconColor, valueColor, cardCls, delay, nestGated }) => (
               <motion.div key={label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay, ease }}>
-                <Card className={cardCls ?? ""}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${iconBg}`}>
-                        <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
+                {nestGated && !budgetHook.hasBudgetHistory ? (
+                  <Card className="h-full border-primary/15 bg-primary/4">
+                    <CardContent className="p-4 h-full flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-medium text-muted-foreground">Spend trends</span>
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-primary/10">
+                          <Crown className="w-3.5 h-3.5 text-primary" />
+                        </div>
                       </div>
-                    </div>
-                    <p className={`text-2xl font-semibold mb-0.5 ${valueColor ?? ""}`}>{value}</p>
-                    <p className="text-xs text-muted-foreground">{sub}</p>
-                  </CardContent>
-                </Card>
+                      <p className="text-xs text-muted-foreground leading-5 flex-1">Month-over-month changes and spend momentum are part of Roost Nest.</p>
+                      <button
+                        type="button"
+                        onClick={openUpgrade}
+                        className="mt-3 text-xs text-primary font-medium underline underline-offset-2 text-left hover:opacity-80 transition-opacity"
+                      >
+                        {hasUsedTrial ? 'Upgrade to Nest →' : 'Try free for 14 days →'}
+                      </button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className={cardCls ?? ""}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${iconBg}`}>
+                          <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
+                        </div>
+                      </div>
+                      <p className={`text-2xl font-semibold mb-0.5 ${valueColor ?? ""}`}>{value}</p>
+                      <p className="text-xs text-muted-foreground">{sub}</p>
+                    </CardContent>
+                  </Card>
+                )}
               </motion.div>
             ))}
           </div>
@@ -539,61 +587,127 @@ export function Budget() {
                   <Badge variant="secondary" className="bg-muted/50 text-muted-foreground hover:bg-muted/50">last 6 months</Badge>
                 </div>
                 <div className="grid grid-cols-6 gap-3 items-end h-56">
-                  {monthlyTrendData.map((item) => (
-                    <div key={item.label} className="flex flex-col items-center gap-2 h-full justify-end">
-                      <div className="flex items-end gap-1.5 h-full w-full justify-center">
-                        <div className="w-4 rounded-t-xl bg-primary/80 min-h-[8px]" style={{ height: `${Math.max((item.spend / maxTrendValue) * 100, item.spend > 0 ? 8 : 0)}%` }} />
-                        <div className="w-4 rounded-t-xl bg-secondary/60 min-h-[8px]" style={{ height: `${Math.max((item.budget / maxTrendValue) * 100, item.budget > 0 ? 8 : 0)}%` }} />
+                  {monthlyTrendData.map((item, idx) => {
+                    const isCurrentMonth = idx === monthlyTrendData.length - 1
+                    const locked = !budgetHook.hasBudgetHistory && !isCurrentMonth
+                    return (
+                      <div key={item.label} className="flex flex-col items-center gap-2 h-full justify-end">
+                        <div className="flex items-end gap-1.5 h-full w-full justify-center">
+                          <div
+                            className={`w-4 rounded-t-xl min-h-[8px] ${locked ? "bg-muted/40" : "bg-primary/80"}`}
+                            style={{ height: `${locked ? 20 + idx * 6 : Math.max((item.spend / maxTrendValue) * 100, item.spend > 0 ? 8 : 0)}%` }}
+                          />
+                          <div
+                            className={`w-4 rounded-t-xl min-h-[8px] ${locked ? "bg-muted/25" : "bg-secondary/60"}`}
+                            style={{ height: `${locked ? 14 + idx * 5 : Math.max((item.budget / maxTrendValue) * 100, item.budget > 0 ? 8 : 0)}%` }}
+                          />
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-xs font-medium ${locked ? "text-muted-foreground/40" : ""}`}>{item.label}</p>
+                          <p className={`text-[11px] ${locked ? "text-muted-foreground/30" : "text-muted-foreground"}`}>
+                            {locked ? "···" : `£${item.spend.toFixed(0)}`}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-center">
-                        <p className="text-xs font-medium">{item.label}</p>
-                        <p className="text-[11px] text-muted-foreground">£{item.spend.toFixed(0)}</p>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
-                <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-primary/80" />Spent</span>
-                  <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-secondary/60" />Budgeted</span>
+                <div className="flex items-center justify-between mt-4">
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-primary/80" />Spent</span>
+                    <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-secondary/60" />Budgeted</span>
+                  </div>
+                  {!budgetHook.hasBudgetHistory && (
+                    <button
+                      type="button"
+                      onClick={openUpgrade}
+                      className="inline-flex items-center gap-1.5 text-xs text-primary font-medium hover:opacity-80 transition-opacity"
+                    >
+                      <Crown className="w-3 h-3" />
+                      Unlock history with Nest
+                    </button>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-primary" />
-                  <h3 className="font-medium">Hazel’s forecast</h3>
-                </div>
-                {hazelLoading ? (
-                  <div className="space-y-2">
-                    <div className="h-4 rounded-full bg-muted animate-pulse w-4/5" />
-                    <div className="h-4 rounded-full bg-muted animate-pulse w-3/4" />
-                    <div className="h-20 rounded-2xl bg-muted/40 animate-pulse" />
+            {canUseHazelBudgetInsights ? (
+              <Card>
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-primary" />
+                    <h3 className="font-medium">Hazel’s forecast</h3>
                   </div>
-                ) : hazelInsight ? (
-                  <>
-                    <div className="rounded-2xl bg-primary/6 border border-primary/10 px-4 py-3.5">
-                      <p className="text-sm leading-6">{hazelInsight.summary}</p>
-                    </div>
-                    <div className="rounded-2xl bg-muted/35 px-4 py-3.5">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Outlook</p>
-                      <p className="text-sm leading-6">{hazelInsight.outlook}</p>
-                    </div>
+                  {hazelLoading ? (
                     <div className="space-y-2">
-                      {hazelInsight.focus.map((item) => (
-                        <div key={item} className="flex items-center gap-2 rounded-xl bg-background/70 border border-border/60 px-3 py-2.5">
-                          <CircleHelp className="w-3.5 h-3.5 text-primary" />
-                          <p className="text-sm">{item}</p>
+                      <div className="h-4 rounded-full bg-muted animate-pulse w-4/5" />
+                      <div className="h-4 rounded-full bg-muted animate-pulse w-3/4" />
+                      <div className="h-20 rounded-2xl bg-muted/40 animate-pulse" />
+                    </div>
+                  ) : hazelInsight ? (
+                    <>
+                      <div className="rounded-2xl bg-primary/6 border border-primary/10 px-4 py-3.5">
+                        <p className="text-sm leading-6">{hazelInsight.summary}</p>
+                      </div>
+                      <div className="rounded-2xl bg-muted/35 px-4 py-3.5">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Outlook</p>
+                        <p className="text-sm leading-6">{hazelInsight.outlook}</p>
+                      </div>
+                      <div className="space-y-2">
+                        {hazelInsight.focus.map((item) => (
+                          <div key={item} className="flex items-center gap-2 rounded-xl bg-background/70 border border-border/60 px-3 py-2.5">
+                            <CircleHelp className="w-3.5 h-3.5 text-primary" />
+                            <p className="text-sm">{item}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Hazel will offer a forecast once there’s enough budget shape to read.</p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="h-full">
+                <CardContent className="p-5 h-full flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-primary" />
+                      <h3 className="font-medium">Hazel’s forecast</h3>
+                    </div>
+                    <Badge className="bg-primary/10 text-primary border border-primary/15 hover:bg-primary/10 text-xs">
+                      <Crown className="w-3 h-3 mr-1" />
+                      Nest
+                    </Badge>
+                  </div>
+                  <div className="flex-1 rounded-2xl bg-primary/5 border border-primary/10 p-4 flex flex-col gap-3">
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      Hazel reads your category spend, recurring costs, and budget pace — then gives you a plain-English read on how the month is shaping up and where to keep an eye.
+                    </p>
+                    <div className="space-y-2 mt-1">
+                      {[
+                        "Is your spending on pace for the month?",
+                        "Which categories need attention?",
+                        "Where is spend likely to land by month-end?",
+                      ].map((item) => (
+                        <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary/40 flex-shrink-0" />
+                          {item}
                         </div>
                       ))}
                     </div>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Hazel will offer a forecast once there’s enough budget shape to read.</p>
-                )}
-              </CardContent>
-            </Card>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 border-primary/25 text-primary hover:bg-primary/5 hover:text-primary"
+                    onClick={openUpgrade}
+                  >
+                    <Crown className="w-3.5 h-3.5" />
+                    {hasUsedTrial ? 'Upgrade to Nest' : 'Try Nest free for 14 days'}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -609,16 +723,39 @@ export function Budget() {
                   </div>
                 </div>
                 <div className="grid sm:grid-cols-3 gap-3">
-                  {[
-                    { title: "Pacing", body: forecastLabel },
-                    { title: "Biggest pressure", body: biggestChangeLabel },
-                    { title: "Coverage", body: totalBudget > 0 ? `${budgetedRows.length} ${budgetedRows.length === 1 ? "category has a limit" : "categories have limits"} this month.` : "No category limits yet — the page is showing spending only." },
-                  ].map((item) => (
-                    <div key={item.title} className="rounded-2xl bg-muted/35 px-4 py-3.5">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1.5">{item.title}</p>
-                      <p className="text-sm leading-6">{item.body}</p>
+                  <div className="rounded-2xl bg-muted/35 px-4 py-3.5">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Pacing</p>
+                    <p className="text-sm leading-6">{forecastLabel}</p>
+                  </div>
+                  {budgetHook.hasBudgetHistory ? (
+                    <>
+                      <div className="rounded-2xl bg-muted/35 px-4 py-3.5">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Biggest pressure</p>
+                        <p className="text-sm leading-6">{biggestChangeLabel}</p>
+                      </div>
+                      <div className="rounded-2xl bg-muted/35 px-4 py-3.5">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Coverage</p>
+                        <p className="text-sm leading-6">{totalBudget > 0 ? `${budgetedRows.length} ${budgetedRows.length === 1 ? "category has a limit" : "categories have limits"} this month.` : "No category limits yet — the page is showing spending only."}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="sm:col-span-2 rounded-2xl bg-primary/5 border border-primary/10 px-4 py-3.5 flex flex-col justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Crown className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <p className="text-xs font-medium text-primary">More with Roost Nest</p>
+                      </div>
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        Nest shows your biggest spend pressure, category coverage, and month-on-month patterns — so you always know where the household stands.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={openUpgrade}
+                        className="text-xs text-primary font-medium underline underline-offset-2 self-start hover:opacity-80 transition-opacity"
+                      >
+                        {hasUsedTrial ? 'Upgrade to Nest →' : 'Try free for 14 days →'}
+                      </button>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>

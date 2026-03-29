@@ -23,6 +23,15 @@ export interface Database {
           invite_code: string
           calendar_token: string        // migration 0004
           next_shop_date: string | null // migration 0006 (date as YYYY-MM-DD string)
+          calendar_last_fetched_at?: string | null
+          subscription_status?: 'free' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'lifetime'
+          subscription_tier?: 'free' | 'nest'
+          trial_ends_at?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          current_period_ends_at?: string | null
+          stripe_price_id?: string | null
+          has_used_trial?: boolean
           created_at: string
         }
         Insert: {
@@ -31,6 +40,15 @@ export interface Database {
           invite_code?: string
           calendar_token?: string
           next_shop_date?: string | null
+          calendar_last_fetched_at?: string | null
+          subscription_status?: 'free' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'lifetime'
+          subscription_tier?: 'free' | 'nest'
+          trial_ends_at?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          current_period_ends_at?: string | null
+          stripe_price_id?: string | null
+          has_used_trial?: boolean
           created_at?: string
         }
         Update: {
@@ -39,6 +57,15 @@ export interface Database {
           invite_code?: string
           calendar_token?: string
           next_shop_date?: string | null
+          calendar_last_fetched_at?: string | null
+          subscription_status?: 'free' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete' | 'lifetime'
+          subscription_tier?: 'free' | 'nest'
+          trial_ends_at?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          current_period_ends_at?: string | null
+          stripe_price_id?: string | null
+          has_used_trial?: boolean
           created_at?: string
         }
         Relationships: []
@@ -447,6 +474,78 @@ export interface Database {
           expires_at?: string | null
           created_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      subscription_events: {
+        Row: {
+          id: string
+          home_id: string | null
+          stripe_event_id: string
+          event_type: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          payload: Json
+          processed_at: string | null
+        }
+        Insert: {
+          id?: string
+          home_id?: string | null
+          stripe_event_id: string
+          event_type: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          payload: Json
+          processed_at?: string | null
+        }
+        Update: {
+          id?: string
+          home_id?: string | null
+          stripe_event_id?: string
+          event_type?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          payload?: Json
+          processed_at?: string | null
+        }
+        Relationships: []
+      }
+      promo_codes: {
+        Row: {
+          id: string
+          code: string
+          description: string | null
+          type: 'lifetime_nest'
+          max_redemptions: number
+          redemption_count: number
+          redeemed_by_home_id: string | null
+          redeemed_at: string | null
+          created_at: string | null
+          expires_at: string | null
+        }
+        Insert: {
+          id?: string
+          code: string
+          description?: string | null
+          type?: 'lifetime_nest'
+          max_redemptions?: number
+          redemption_count?: number
+          redeemed_by_home_id?: string | null
+          redeemed_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+        }
+        Update: {
+          id?: string
+          code?: string
+          description?: string | null
+          type?: 'lifetime_nest'
+          max_redemptions?: number
+          redemption_count?: number
+          redeemed_by_home_id?: string | null
+          redeemed_at?: string | null
+          created_at?: string | null
+          expires_at?: string | null
         }
         Relationships: []
       }

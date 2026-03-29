@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuthContext } from "@/context/AuthContext";
+import appIcon from "@/assets/app-icon.png";
 
 const ease = [0.43, 0.13, 0.23, 0.96] as const;
 const spring = { type: "spring" as const, stiffness: 400, damping: 17 };
@@ -40,11 +41,11 @@ export function Join() {
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         >
           <motion.div
-            className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-medium text-2xl shadow-md select-none"
+            className="w-14 h-14 rounded-xl shadow-md select-none overflow-hidden"
             animate={{ scale: [1, 1.06, 1] }}
             transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
           >
-            R
+            <img src={appIcon} alt="Roost" className="w-full h-full object-cover" />
           </motion.div>
           <div className="text-center space-y-1">
             <p className="text-sm font-medium text-foreground">
@@ -114,9 +115,7 @@ export function Join() {
           transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
           className="flex justify-center mb-6"
         >
-          <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-medium text-2xl shadow-md select-none">
-            R
-          </div>
+          <img src={appIcon} alt="Roost" className="w-14 h-14 rounded-xl object-cover shadow-md select-none" />
         </motion.div>
 
         {/* Heading */}

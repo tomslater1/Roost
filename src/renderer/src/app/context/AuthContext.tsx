@@ -9,6 +9,8 @@ interface AuthContextValue {
   user: User | null
   loading: boolean
   googlePending: boolean
+  oauthError: string | null
+  clearOauthError: () => void
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -22,6 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const [googlePending, setGooglePending] = useState(
     () => !!localStorage.getItem('roost_google_pending')
   )
+  const [oauthError, setOauthError] = useState<string | null>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -55,7 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
           try {
             const { access_token, refresh_token } = JSON.parse(pending)
             setTimeout(async () => {
-              const { data: { session } } = await supabase.auth.setSession({ access_token, refresh_token })
+              const { data } = await supabase.auth.setSession({ access_token, refresh_token })
+              const session = data?.session
               if (!session) {
                 localStorage.removeItem('roost_google_pending')
                 setGooglePending(false)
@@ -107,6 +111,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       const p = new URLSearchParams(hash)
       const access_token = p.get('access_token')
       const refresh_token = p.get('refresh_token')
+      // Check for a server-side OAuth error before looking for tokens
+      const qp = new URLSearchParams(url.split('?')[1] ?? '')
+      const oauthErr = qp.get('error')
+      if (oauthErr) {
+        const description = qp.get('error_description') ?? qp.get('error_code') ?? oauthErr
+        localStorage.removeItem('roost_google_pending')
+        setGooglePending(false)
+        setOauthError(description.replace(/\+/g, ' '))
+        return
+      }
+
       if (!access_token || !refresh_token) return
       localStorage.setItem('roost_oauth_tokens', JSON.stringify({ access_token, refresh_token }))
       // Flag survives the reload and tells Welcome to show a loading screen
@@ -119,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   }, [])
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, googlePending }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, googlePending, oauthError, clearOauthError: () => setOauthError(null) }}>
       {children}
     </AuthContext.Provider>
   )

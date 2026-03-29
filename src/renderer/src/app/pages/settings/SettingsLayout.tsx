@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import { User, Users, Wallet, LogOut, Sparkles, DoorOpen, Bell } from "lucide-react";
+import { User, Users, Wallet, LogOut, Sparkles, DoorOpen, Bell, Crown } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 const settingsNav = [
@@ -10,6 +10,7 @@ const settingsNav = [
   { path: "/settings/hazel", label: "Hazel", icon: Sparkles },
   { path: "/settings/notifications", label: "Notifications", icon: Bell },
   { path: "/settings/account", label: "Account", icon: LogOut },
+  { path: "/settings/subscription", label: "Subscription", icon: Crown },
 ];
 
 export function SettingsLayout() {

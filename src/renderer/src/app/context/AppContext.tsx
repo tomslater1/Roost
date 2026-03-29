@@ -152,6 +152,8 @@ interface AppContextType {
   isExpensesLoading: boolean;
   isAddingExpense: boolean;
   isChoresLoading: boolean;
+  hasFullExpenseHistory: boolean;
+  expenseHistoryCutoffDate: Date | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -533,6 +535,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isAddingExpense: expensesHook.isAdding,
     isAddingChore: choresHook.isAdding,
     isChoresLoading: choresHook.isLoading,
+    hasFullExpenseHistory: expensesHook.hasFullHistory,
+    expenseHistoryCutoffDate: expensesHook.historyCutoffDate,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
