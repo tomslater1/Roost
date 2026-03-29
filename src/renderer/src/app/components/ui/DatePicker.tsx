@@ -31,7 +31,7 @@ export function DatePicker({
         <Button
           variant="outline"
           disabled={disabled}
-          className={`w-full justify-start gap-3 rounded-xl border-transparent bg-background px-3.5 text-left font-normal shadow-none hover:bg-accent/30 hover:border-transparent ${!value ? "text-muted-foreground" : "text-foreground"} ${className ?? ""}`}
+          className={`w-full justify-start gap-3 rounded-xl border-border/45 bg-background/70 px-3.5 text-left font-normal hover:bg-background/92 hover:border-border/75 ${!value ? "text-muted-foreground" : "text-foreground"} ${className ?? ""}`}
         >
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <CalendarIcon className="h-4 w-4" />
@@ -44,7 +44,7 @@ export function DatePicker({
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto rounded-2xl border-border/80 p-2 shadow-2xl" align={align}>
+      <PopoverContent className="w-auto rounded-2xl border-border/80 p-2 shadow-[0_18px_44px_rgba(15,13,11,0.16)]" align={align}>
         <Calendar
           mode="single"
           selected={value ?? undefined}

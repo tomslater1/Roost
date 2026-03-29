@@ -16,6 +16,7 @@ export function AnimatedPage({ children, className }: AnimatedPageProps) {
     <motion.div
       initial="initial"
       animate="animate"
+      exit="exit"
       variants={pageVariants}
       className={className}
     >

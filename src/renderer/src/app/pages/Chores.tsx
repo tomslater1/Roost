@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { differenceInCalendarDays } from "date-fns";
 import { Clipboard, CheckCircle, Trash2, Plus, User, Users, Calendar as CalendarIcon, AlertCircle, DoorOpen, RefreshCw, Clock, Sparkles, X, Check, UserX, Flame } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -19,7 +19,13 @@ import { listItemVariants } from "../utils/animations";
 import { RoomIcon } from "../components/RoomIcon";
 
 const ease = [0.43, 0.13, 0.23, 0.96] as const
-const spring = { type: "spring" as const, stiffness: 400, damping: 17 }
+const spring = { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const }
+const microInteraction = { duration: 0.12, ease: [0.22, 1, 0.36, 1] as const }
+const STRIKE_ANIMATION_MS = 900;
+
+interface ChoreStrikeState {
+  startedAt: number;
+}
 
 const FREQUENCY_OPTIONS = [
   { value: "one-time" as const, label: "One-time", icon: Clock },
@@ -55,6 +61,14 @@ export function Chores() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [addedSuggestions, setAddedSuggestions] = useState<Set<string>>(new Set());
+  const [recentlyCompleted, setRecentlyCompleted] = useState<Record<string, ChoreStrikeState>>({});
+  const strikeTimeoutsRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    return () => {
+      Object.values(strikeTimeoutsRef.current).forEach((timeoutId) => window.clearTimeout(timeoutId));
+    };
+  }, []);
 
   const [newChore, setNewChore] = useState({
     title: "",
@@ -108,10 +122,51 @@ export function Chores() {
     return true;
   });
 
-  const activeChores = filteredChores.filter(c => !c.completed);
-  const completedChores = filteredChores.filter(c => c.completed);
+  const activeChores = filteredChores.filter(c => !c.completed || Boolean(recentlyCompleted[c.id]));
+  const completedChores = filteredChores.filter(c => c.completed && !recentlyCompleted[c.id]);
+  const completedChoresCount = filteredChores.filter(c => c.completed).length;
   const overdueChores = activeChores.filter(c => c.dueDate && new Date(c.dueDate) < today);
   const upcomingChores = activeChores.filter(c => !c.dueDate || new Date(c.dueDate) >= today);
+  const dueSoonCount = activeChores.filter((c) => c.dueDate && differenceInCalendarDays(new Date(c.dueDate), today) <= 2).length;
+
+  const clearRecentCompletion = (id: string) => {
+    const timeoutId = strikeTimeoutsRef.current[id];
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+      delete strikeTimeoutsRef.current[id];
+    }
+    setRecentlyCompleted((current) => {
+      if (!(id in current)) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const beginRecentCompletion = (id: string) => {
+    clearRecentCompletion(id);
+    setRecentlyCompleted((current) => ({
+      ...current,
+      [id]: { startedAt: Date.now() },
+    }));
+    strikeTimeoutsRef.current[id] = window.setTimeout(() => {
+      clearRecentCompletion(id);
+    }, STRIKE_ANIMATION_MS);
+  };
+
+  const handleToggleChore = (id: string) => {
+    const chore = chores.find((entry) => entry.id === id);
+    if (!chore) return;
+
+    if (chore.completed) {
+      clearRecentCompletion(id);
+      toggleChore(id);
+      return;
+    }
+
+    beginRecentCompletion(id);
+    toggleChore(id);
+  };
 
   const handleSuggestChores = async () => {
     // Toggle off if already showing results
@@ -195,10 +250,10 @@ export function Chores() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-semibold mb-1.5">Chores</h1>
-            <p className="text-muted-foreground">
+            <p className="max-w-xl text-muted-foreground leading-6">
               {activeChores.length === 0
                 ? "Everything's taken care of"
-                : `${activeChores.length} task${activeChores.length !== 1 ? 's' : ''} to do`}
+                : `${activeChores.length} task${activeChores.length !== 1 ? 's' : ''} keeping the home in motion`}
               {overdueChores.length > 0 && (
                 <span className="text-destructive"> · {overdueChores.length} overdue</span>
               )}
@@ -208,7 +263,7 @@ export function Chores() {
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={spring}>
               <Button
                 variant="outline"
-                className="gap-2"
+                className="gap-2 border-border/60 bg-background/74"
                 onClick={handleSuggestChores}
                 disabled={suggestionsLoading}
               >
@@ -217,7 +272,7 @@ export function Chores() {
               </Button>
             </motion.div>
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={spring}>
-              <Button className="gap-2" onClick={() => setShowAddChore(true)}>
+              <Button className="gap-2 px-4.5" onClick={() => setShowAddChore(true)}>
                 <Plus className="w-4 h-4" />
                 Add chore
               </Button>
@@ -234,7 +289,7 @@ export function Chores() {
               exit={{ opacity: 0, y: -6, scale: 0.99 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             >
-              <Card className="border-primary/20 bg-primary/5">
+              <Card className="border-primary/18 bg-primary/5 shadow-[0_16px_30px_rgba(212,121,94,0.06),inset_0_1px_0_rgba(255,255,255,0.18)]">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -249,7 +304,7 @@ export function Chores() {
                         whileTap={{ scale: 0.9 }}
                         transition={spring}
                         onClick={() => setShowSuggestions(false)}
-                        className="w-6 h-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-background/75 hover:text-foreground transition-colors"
                         aria-label="Dismiss suggestions"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -269,7 +324,7 @@ export function Chores() {
                     </div>
                   ) : (
                     <>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2.5">
                         <AnimatePresence>
                           {suggestions.map((suggestion, i) => {
                             const added = addedSuggestions.has(suggestion);
@@ -282,10 +337,10 @@ export function Chores() {
                                 onClick={() => !added && handleAddSuggestion(suggestion)}
                                 disabled={added}
                                 className={[
-                                  "flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm font-medium transition-all duration-150",
+                                  "flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]",
                                   added
                                     ? "border-success/30 bg-success/8 text-success cursor-default"
-                                    : "border-border bg-card hover:border-primary hover:bg-primary/8 text-foreground cursor-pointer",
+                                    : "border-border/60 bg-background/78 hover:border-primary/35 hover:bg-background/96 text-foreground cursor-pointer",
                                 ].join(" ")}
                               >
                                 {added
@@ -298,7 +353,7 @@ export function Chores() {
                           })}
                         </AnimatePresence>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-3">
+                      <p className="mt-3 text-xs text-muted-foreground">
                         Tap any suggestion to add it straight to your list.
                       </p>
                     </>
@@ -310,32 +365,33 @@ export function Chores() {
         </AnimatePresence>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 items-stretch">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 items-stretch">
           {[
             {
               icon: Clipboard,
               label: "To do",
               value: upcomingChores.length,
               sub: upcomingChores.length === 1 ? "task remaining" : "tasks remaining",
+              tone: "neutral",
               delay: 0.02,
             },
             {
               icon: AlertCircle,
-              label: "Overdue",
+              label: "Needs attention",
               value: overdueChores.length,
-              sub: overdueChores.length === 0 ? "Nothing overdue" : overdueChores.length === 1 ? "task past due" : "tasks past due",
-              urgent: overdueChores.length > 0,
+              sub: overdueChores.length === 0 ? (dueSoonCount > 0 ? `${dueSoonCount} due soon` : "Nothing pressing") : overdueChores.length === 1 ? "task past due" : "tasks past due",
+              tone: overdueChores.length > 0 ? "urgent" : dueSoonCount > 0 ? "warm" : "neutral",
               delay: 0.08,
             },
             {
               icon: CheckCircle,
               label: "Completed",
-              value: completedChores.length,
-              sub: completedChores.length === 1 ? "task done" : "tasks done",
-              positive: completedChores.length > 0,
+              value: completedChoresCount,
+              sub: completedChoresCount === 1 ? "task done" : "tasks done",
+              tone: completedChoresCount > 0 ? "positive" : "neutral",
               delay: 0.14,
             },
-          ].map(({ icon: Icon, label, value, sub, urgent, positive, delay }) => (
+          ].map(({ icon: Icon, label, value, sub, tone, delay }) => (
             <motion.div
               key={label}
               initial={{ opacity: 0, y: 10 }}
@@ -343,16 +399,33 @@ export function Chores() {
               transition={{ duration: 0.3, delay, ease }}
               className="h-full"
             >
-              <Card className={`h-full ${urgent ? "bg-destructive/10 border-destructive/30" : ""} ${positive ? "bg-success/10 border-success/30" : ""}`}>
+              <Card className={[
+                "h-full",
+                tone === "urgent" && "bg-destructive/8 border-destructive/25",
+                tone === "warm" && "bg-warning/8 border-warning/25",
+                tone === "positive" && "bg-success/8 border-success/25",
+              ].filter(Boolean).join(" ")}>
                 <CardContent className="p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Icon className={`w-4 h-4 ${urgent ? "text-destructive" : positive ? "text-success" : "text-primary"}`} />
-                    <span className="text-sm font-medium">{label}</span>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className={[
+                        "flex h-9 w-9 items-center justify-center rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]",
+                        tone === "urgent" ? "bg-destructive/12 text-destructive" : tone === "warm" ? "bg-warning/12 text-warning" : tone === "positive" ? "bg-success/12 text-success" : "bg-primary/10 text-primary",
+                      ].join(" ")}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className="text-sm font-medium">{label}</span>
+                    </div>
                   </div>
-                  <p className={`text-3xl font-semibold mb-1 ${urgent ? "text-destructive" : positive ? "text-success" : ""}`}>
+                  <p className={[
+                    "mb-1 text-3xl font-semibold tracking-tight",
+                    tone === "urgent" && "text-destructive",
+                    tone === "warm" && "text-warning",
+                    tone === "positive" && "text-success",
+                  ].filter(Boolean).join(" ")}>
                     {value}
                   </p>
-                  <p className="text-sm text-muted-foreground">{sub}</p>
+                  <p className="text-sm text-muted-foreground leading-6">{sub}</p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -360,7 +433,7 @@ export function Chores() {
         </div>
 
         {/* Person filter */}
-        <div className="flex items-center gap-2">
+        <div className="inline-flex w-fit items-center gap-1 rounded-[18px] border border-border/55 bg-muted/26 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
           {(
             [
               { value: "all", label: "Everyone", icon: Users },
@@ -368,20 +441,22 @@ export function Chores() {
               { value: "partner", label: partnerName, icon: User },
             ] as const
           ).map(({ value, label, icon: Icon }) => (
-            <button
+            <motion.button
               key={value}
               type="button"
               onClick={() => setView(value)}
+              whileTap={{ scale: 0.985 }}
+              transition={microInteraction}
               className={[
-                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-sm font-medium transition-all duration-150",
+                "flex items-center gap-1.5 rounded-[14px] px-3.5 py-2 text-sm font-medium transition-all duration-150",
                 view === value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-card hover:bg-muted/60 text-muted-foreground",
+                  ? "bg-background/96 text-foreground shadow-[0_8px_18px_rgba(61,50,41,0.08)]"
+                  : "text-muted-foreground hover:bg-background/42 hover:text-foreground",
               ].join(" ")}
             >
               <Icon className="w-3.5 h-3.5" />
               {label}
-            </button>
+            </motion.button>
           ))}
         </div>
 
@@ -403,11 +478,14 @@ export function Chores() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25, ease }}
             >
-              <Card className="border-destructive/30 bg-destructive/5">
+              <Card className="border-destructive/25 bg-destructive/5 shadow-[0_16px_28px_rgba(199,81,70,0.06),inset_0_1px_0_rgba(255,255,255,0.14)]">
                 <CardContent className="p-5">
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="mb-4 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-destructive" />
-                    <h3 className="font-medium text-destructive">Overdue</h3>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-destructive/70">Needs attention</p>
+                      <h3 className="font-medium text-destructive">Overdue</h3>
+                    </div>
                     <Badge variant="destructive" className="text-xs">{overdueChores.length}</Badge>
                   </div>
                   <div className="space-y-2">
@@ -421,8 +499,10 @@ export function Chores() {
                           streak={streakByChore.get(chore.id)}
                           getRoomIcon={getRoomIcon}
                           formatDate={formatDate}
-                          onToggle={() => toggleChore(chore.id)}
+                          onToggle={() => handleToggleChore(chore.id)}
                           onDelete={() => setDeleteId(chore.id)}
+                          isCompleting={Boolean(chore.completed)}
+                          shouldAnimateStrike={Boolean(recentlyCompleted[chore.id])}
                         />
                       ))}
                     </AnimatePresence>
@@ -435,11 +515,14 @@ export function Chores() {
 
         {/* Active / upcoming */}
         {!isChoresLoading && (
-          <Card>
+          <Card className="bg-card/84">
             <CardContent className="p-5">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="mb-4 flex items-center gap-2">
                 <Clipboard className="w-4 h-4 text-primary" />
-                <h3 className="font-medium">To do</h3>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground/75">Open tasks</p>
+                  <h3 className="font-medium">To do</h3>
+                </div>
                 <Badge variant="secondary">{upcomingChores.length}</Badge>
               </div>
               <AnimatePresence>
@@ -449,7 +532,7 @@ export function Chores() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.97 }}
                     transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-primary/5 border border-primary/10 mb-2"
+                    className="mb-2 flex items-center gap-4 rounded-2xl border border-primary/10 bg-primary/5 p-4"
                   >
                     <div className="w-6 h-6 rounded-full border-2 border-primary/30 flex-shrink-0 animate-pulse" />
                     <div className="flex-1 space-y-2">
@@ -476,8 +559,10 @@ export function Chores() {
                       streak={streakByChore.get(chore.id)}
                       getRoomIcon={getRoomIcon}
                       formatDate={formatDate}
-                      onToggle={() => toggleChore(chore.id)}
+                      onToggle={() => handleToggleChore(chore.id)}
                       onDelete={() => setDeleteId(chore.id)}
+                      isCompleting={Boolean(chore.completed)}
+                      shouldAnimateStrike={Boolean(recentlyCompleted[chore.id])}
                     />
                   ))}
                 </AnimatePresence>
@@ -508,11 +593,14 @@ export function Chores() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25, ease }}
             >
-              <Card>
+              <Card className="bg-card/72 border-border/55">
                 <CardContent className="p-5">
                   <div className="flex items-center gap-2 mb-4">
                     <CheckCircle className="w-4 h-4 text-success" />
-                    <h3 className="font-medium text-muted-foreground">Completed</h3>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground/72">Resolved</p>
+                      <h3 className="font-medium text-muted-foreground">Completed</h3>
+                    </div>
                     <Badge variant="secondary">{completedChores.length}</Badge>
                   </div>
                   <div className="space-y-2">
@@ -526,8 +614,10 @@ export function Chores() {
                           streak={streakByChore.get(chore.id)}
                           getRoomIcon={getRoomIcon}
                           formatDate={formatDate}
-                          onToggle={() => toggleChore(chore.id)}
+                          onToggle={() => handleToggleChore(chore.id)}
                           onDelete={() => setDeleteId(chore.id)}
+                          isCompleting={Boolean(chore.completed)}
+                          shouldAnimateStrike={false}
                         />
                       ))}
                     </AnimatePresence>
@@ -579,10 +669,10 @@ export function Chores() {
                     type="button"
                     onClick={() => setNewChore({ ...newChore, assignedTo: person })}
                     className={[
-                      "flex items-center gap-2.5 p-3 rounded-lg border text-sm text-left transition-all duration-150",
+                      "flex items-center gap-2.5 rounded-xl border p-3 text-sm text-left transition-all duration-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]",
                       newChore.assignedTo === person
-                        ? "border-primary bg-primary/8 text-primary"
-                        : "border-border bg-background hover:bg-muted/60 text-foreground",
+                        ? "border-primary/30 bg-primary/8 text-primary"
+                        : "border-border/60 bg-background/70 hover:bg-muted/50 text-foreground",
                     ].join(" ")}
                   >
                     <div className={[
@@ -625,10 +715,10 @@ export function Chores() {
                     type="button"
                     onClick={() => setNewChore({ ...newChore, frequency: value })}
                     className={[
-                      "flex flex-col items-center gap-1 py-2.5 px-2 rounded-lg border text-sm transition-all duration-150",
+                      "flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-sm transition-all duration-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]",
                       newChore.frequency === value
-                        ? "border-primary bg-primary/8 text-primary"
-                        : "border-border bg-background hover:bg-muted/60 text-muted-foreground",
+                        ? "border-primary/30 bg-primary/8 text-primary"
+                        : "border-border/60 bg-background/70 hover:bg-muted/50 text-muted-foreground",
                     ].join(" ")}
                   >
                     <span className="font-medium text-xs">{label}</span>
@@ -666,10 +756,10 @@ export function Chores() {
                               setNewChore({ ...newChore, room: newChore.room === group.name ? "" : group.name })
                             }
                             className={[
-                              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-sm transition-all duration-150",
+                              "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm transition-all duration-150",
                               newChore.room === group.name
-                                ? "border-primary bg-primary/8 text-primary"
-                                : "border-border bg-background hover:bg-muted/60 text-foreground",
+                                ? "border-primary/30 bg-primary/8 text-primary"
+                                : "border-border/60 bg-background/70 hover:bg-muted/50 text-foreground",
                             ].join(" ")}
                           >
                             <RoomIcon iconName={group.icon} className="w-3.5 h-3.5" />
@@ -692,10 +782,10 @@ export function Chores() {
                             setNewChore({ ...newChore, room: newChore.room === room.name ? "" : room.name })
                           }
                           className={[
-                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-sm transition-all duration-150",
+                            "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm transition-all duration-150",
                             newChore.room === room.name
-                              ? "border-primary bg-primary/8 text-primary"
-                              : "border-border bg-background hover:bg-muted/60 text-foreground",
+                              ? "border-primary/30 bg-primary/8 text-primary"
+                              : "border-border/60 bg-background/70 hover:bg-muted/50 text-foreground",
                           ].join(" ")}
                         >
                           <RoomIcon iconName={room.icon} className="w-3.5 h-3.5" />
@@ -788,14 +878,19 @@ interface ChoreRowProps {
   completed?: boolean;
   lastCompletion?: { userName: string; completedAt: Date };
   streak?: number;
+  isCompleting?: boolean;
+  shouldAnimateStrike?: boolean;
   getRoomIcon: (name: string) => string;
   formatDate: (date: Date | null) => string;
   onToggle: () => void;
   onDelete: () => void;
 }
 
-function ChoreRow({ chore, overdue, completed, lastCompletion, streak, getRoomIcon, formatDate, onToggle, onDelete }: ChoreRowProps) {
-  const spring = { type: "spring" as const, stiffness: 400, damping: 17 }
+const ChoreRow = React.forwardRef<HTMLDivElement, ChoreRowProps>(function ChoreRow(
+  { chore, overdue, completed, lastCompletion, streak, isCompleting, shouldAnimateStrike, getRoomIcon, formatDate, onToggle, onDelete }: ChoreRowProps,
+  ref
+) {
+  const spring = { duration: 0.16, ease: [0.22, 1, 0.36, 1] as const }
   const isUnassigned = !chore.assignedTo || chore.assignedTo === "Unknown";
 
   // Human-readable "last done" label for the history row
@@ -811,33 +906,36 @@ function ChoreRow({ chore, overdue, completed, lastCompletion, streak, getRoomIc
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial="hidden"
       animate="visible"
       exit="exit"
       variants={listItemVariants}
       className={[
-        "flex items-center gap-4 p-4 rounded-xl transition-colors group",
+        "group flex items-start gap-4 rounded-[20px] border p-4 transition-[background-color,border-color,box-shadow]",
         completed
-          ? "bg-success/8 border border-success/20"
+          ? "border-success/16 bg-success/5"
+          : isCompleting
+            ? "border-success/20 bg-success/7 hover:bg-success/8 hover:shadow-[0_10px_20px_rgba(127,160,135,0.05)]"
           : overdue
-            ? "bg-destructive/8 hover:bg-destructive/12"
-            : "bg-muted/50 hover:bg-muted",
+            ? "border-destructive/18 bg-destructive/7 hover:bg-destructive/10 hover:shadow-[0_10px_20px_rgba(199,81,70,0.05)]"
+            : "border-border/45 bg-background/46 hover:bg-background/74 hover:shadow-[0_10px_20px_rgba(61,50,41,0.04)]",
       ].join(" ")}
     >
       {/* Complete button */}
       <motion.button
         onClick={onToggle}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        transition={spring}
+        whileHover={{ scale: 1.04 }}
+        whileTap={{ scale: 0.94 }}
+        transition={microInteraction}
         className={[
-          "w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+          "mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors",
           completed
             ? "border-success bg-success"
             : overdue
               ? "border-destructive hover:bg-destructive/10"
-              : "border-primary hover:bg-primary/10",
+              : "border-primary/70 hover:bg-primary/10",
         ].join(" ")}
       >
         <AnimatePresence>
@@ -856,20 +954,20 @@ function ChoreRow({ chore, overdue, completed, lastCompletion, streak, getRoomIc
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <h4 className={`font-medium relative inline-block ${completed ? "text-muted-foreground" : ""}`}>
+        <div className="mb-2 flex items-center gap-2 flex-wrap">
+          <h4 className={`font-medium leading-5 relative inline-block ${completed || isCompleting ? "text-muted-foreground" : ""}`}>
             {chore.title}
-            {completed && (
+            {(completed || isCompleting) && (
               <motion.span
-                initial={{ width: "0%" }}
+                initial={shouldAnimateStrike ? { width: "0%" } : false}
                 animate={{ width: "100%" }}
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: 0.72, ease: [0.2, 0.8, 0.2, 1] }}
                 className="absolute left-0 top-1/2 h-[1.5px] bg-muted-foreground/50"
               />
             )}
           </h4>
           {chore.frequency && chore.frequency !== "one-time" && (
-            <Badge variant="outline" className="text-xs gap-1">
+            <Badge variant="outline" className="text-xs gap-1 bg-background/78 text-muted-foreground">
               <RefreshCw className="w-2.5 h-2.5" />
               {chore.frequency}
             </Badge>
@@ -889,18 +987,18 @@ function ChoreRow({ chore, overdue, completed, lastCompletion, streak, getRoomIc
           )}
         </div>
 
-        <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+        <div className={`flex items-center gap-3 text-[12px] flex-wrap transition-colors duration-200 ${isCompleting ? 'text-muted-foreground/62' : 'text-muted-foreground/84'}`}>
           {/* Assignee */}
           {isUnassigned ? (
             <div className="flex items-center gap-1.5 text-warning">
-              <div className="w-4 h-4 rounded-full bg-warning/15 flex items-center justify-center">
+              <div className="flex h-4 w-4 items-center justify-center rounded-full bg-warning/15">
                 <UserX className="w-2.5 h-2.5 text-warning" />
               </div>
               <span className="font-medium">Unassigned</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded-full bg-primary/15 flex items-center justify-center">
+              <div className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15">
                 <span className="text-[9px] font-medium text-primary leading-none">
                   {chore.assignedTo.charAt(0).toUpperCase()}
                 </span>
@@ -948,10 +1046,16 @@ function ChoreRow({ chore, overdue, completed, lastCompletion, streak, getRoomIc
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className="text-xs text-muted-foreground/70 italic"
+                className="text-[11px] text-muted-foreground/68 italic"
               >
                 {lastDoneLabel}
               </motion.span>
+            </>
+          )}
+          {isCompleting && (
+            <>
+              <span className="text-border">·</span>
+              <span className="text-[11px] text-success/80">completed</span>
             </>
           )}
         </div>
@@ -966,7 +1070,7 @@ function ChoreRow({ chore, overdue, completed, lastCompletion, streak, getRoomIc
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 rounded-full"
           onClick={onDelete}
         >
           <Trash2 className="w-3.5 h-3.5 text-destructive" />
@@ -974,4 +1078,4 @@ function ChoreRow({ chore, overdue, completed, lastCompletion, streak, getRoomIc
       </motion.div>
     </motion.div>
   );
-}
+});

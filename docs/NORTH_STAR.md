@@ -493,6 +493,33 @@ Things that were done quickly or need revisiting. Be honest here — this is not
 
 ## 📅 Session Log
 
+### Session 17 — 29 March 2026
+Shipped a focused premium polish cycle across Roost’s highest-impact surfaces, with special attention on Shopping, Chores, shared controls, and interaction quality. This session also prepared the app for the next GitHub draft-release pipeline run.
+
+**Premium polish work:**
+- Refined shared UI primitives (cards, buttons, badges, inputs, checkboxes, dialogs, popovers, selects) for calmer hierarchy, subtler glass layering, stronger tactile feedback, and more deliberate focus treatment
+- Tightened the shared motion system: durations shortened, easing unified, hover/press states made more restrained and more macOS-adjacent
+- Upgraded empty/loading states so they feel more product-grade and less prototype-like
+
+**Shopping page improvements:**
+- Reworked the quick-add area, category grouping rhythm, row density, and metadata emphasis so the page scans more easily and feels less repetitive
+- Improved category headers and active/done row treatment to create clearer hierarchy and calmer section separation
+- Revised completion behavior so shopping items now remain in their aisle/category when checked, with a slower left-to-right strike animation and in-place completed state
+
+**Chores page improvements:**
+- Reduced noise across stats, filters, and row metadata; improved distinction between overdue, open, and completed surfaces
+- Strengthened row hierarchy and common actions so task scanning feels lighter and more intentional
+- Updated chore completion behavior to keep the premium strike/confirmation feel while restoring a dedicated Completed section for chores only
+
+**Interaction polish:**
+- Standardised button hover/press/focus feedback across the app
+- Refined modal, popover, select, and date-picker entrance/exit behavior for smoother, calmer overlays
+- Improved row-level feedback on Shopping and Chores so common actions feel clearer and more satisfying without becoming flashy
+
+**Verification:**
+- Repeatedly validated with `npm run build:app` during the pass
+- Final production app build passes cleanly at `v1.4.0`, ready for the GitHub draft-release pipeline
+
 ### Session 16 — 28 March 2026
 Prepared the Roost Nest release for the GitHub draft-release pipeline and verified the desktop build path end to end.
 

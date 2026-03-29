@@ -15,23 +15,23 @@ interface EmptyStateProps {
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col items-center justify-center py-16 px-6 text-center"
     >
       <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 15 }}
-        className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4"
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.04, duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+        className="mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] border border-border/60 bg-background/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
       >
-        <Icon className="w-8 h-8 text-muted-foreground" />
+        <Icon className="w-7 h-7 text-muted-foreground" />
       </motion.div>
-      <h3 className="text-lg font-medium mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground max-w-md mb-6">{description}</p>
+      <h3 className="mb-2 text-lg font-medium tracking-tight">{title}</h3>
+      <p className="mb-6 max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
       {action && (
-        <Button onClick={action.onClick} className="gap-2">
+        <Button onClick={action.onClick} variant="outline" className="gap-2">
           {action.label}
         </Button>
       )}

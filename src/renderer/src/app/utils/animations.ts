@@ -7,9 +7,10 @@ import { Variants } from "motion/react";
 
 // Easing functions
 export const easing: Record<string, [number, number, number, number]> = {
-  smooth: [0.43, 0.13, 0.23, 0.96], // Smooth for page transitions
-  snappy: [0.34, 1.56, 0.64, 1], // Snappy spring for interactions
+  smooth: [0.32, 0.72, 0, 1], // Calm, deliberate page transitions
+  snappy: [0.22, 1, 0.36, 1], // Crisp without feeling springy or playful
   easeOut: [0.16, 1, 0.3, 1], // Gentle ease out
+  focus: [0.2, 0.8, 0.2, 1], // Subtle, responsive state changes
 };
 
 // Page transition variants
@@ -22,7 +23,7 @@ export const pageVariants: Variants = {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.4,
+      duration: 0.32,
       ease: easing.smooth,
     },
   },
@@ -30,7 +31,7 @@ export const pageVariants: Variants = {
     opacity: 0,
     y: -8,
     transition: {
-      duration: 0.3,
+      duration: 0.22,
       ease: easing.smooth,
     },
   },
@@ -40,24 +41,24 @@ export const pageVariants: Variants = {
 export const modalVariants: Variants = {
   hidden: {
     opacity: 0,
-    scale: 0.95,
-    y: 20,
+    scale: 0.975,
+    y: 10,
   },
   visible: {
     opacity: 1,
     scale: 1,
     y: 0,
     transition: {
-      duration: 0.25,
+      duration: 0.2,
       ease: easing.easeOut,
     },
   },
   exit: {
     opacity: 0,
-    scale: 0.95,
-    y: 20,
+    scale: 0.985,
+    y: 8,
     transition: {
-      duration: 0.2,
+      duration: 0.16,
       ease: easing.smooth,
     },
   },
@@ -68,11 +69,11 @@ export const backdropVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { duration: 0.2 },
+    transition: { duration: 0.16, ease: easing.focus },
   },
   exit: {
     opacity: 0,
-    transition: { duration: 0.2 },
+    transition: { duration: 0.14, ease: easing.focus },
   },
 };
 
@@ -92,24 +93,24 @@ export const listContainerVariants: Variants = {
 export const listItemVariants: Variants = {
   hidden: {
     opacity: 0,
-    y: -10,
-    scale: 0.95,
+    y: -8,
+    scale: 0.985,
   },
   visible: {
     opacity: 1,
     y: 0,
     scale: 1,
     transition: {
-      duration: 0.3,
+      duration: 0.2,
       ease: easing.easeOut,
     },
   },
   exit: {
     opacity: 0,
-    scale: 0.9,
-    x: -20,
+    scale: 0.985,
+    x: -12,
     transition: {
-      duration: 0.2,
+      duration: 0.14,
       ease: easing.smooth,
     },
   },
@@ -125,7 +126,7 @@ export const checkboxVariants: Variants = {
     opacity: 0.6,
     scale: 0.98,
     transition: {
-      duration: 0.2,
+      duration: 0.16,
       ease: easing.smooth,
     },
   },
@@ -141,7 +142,7 @@ export const strikethroughVariants: Variants = {
     width: "100%",
     opacity: 1,
     transition: {
-      duration: 0.4,
+      duration: 0.28,
       ease: easing.easeOut,
     },
   },
@@ -153,9 +154,9 @@ export const cardHoverVariants: Variants = {
     scale: 1,
   },
   hover: {
-    scale: 1.02,
+    scale: 1.01,
     transition: {
-      duration: 0.2,
+      duration: 0.14,
       ease: easing.snappy,
     },
   },
@@ -167,16 +168,16 @@ export const buttonHoverVariants: Variants = {
     scale: 1,
   },
   hover: {
-    scale: 1.03,
+    scale: 1.015,
     transition: {
-      duration: 0.15,
+      duration: 0.12,
       ease: easing.snappy,
     },
   },
   tap: {
-    scale: 0.97,
+    scale: 0.985,
     transition: {
-      duration: 0.1,
+      duration: 0.08,
     },
   },
 };
@@ -191,7 +192,7 @@ export const settleUpStageVariants: Variants = {
     opacity: 1,
     x: 0,
     transition: {
-      duration: 0.3,
+      duration: 0.24,
       ease: easing.easeOut,
     },
   },
@@ -199,7 +200,7 @@ export const settleUpStageVariants: Variants = {
     opacity: 0,
     x: -20,
     transition: {
-      duration: 0.2,
+      duration: 0.16,
       ease: easing.smooth,
     },
   },
@@ -209,15 +210,14 @@ export const settleUpStageVariants: Variants = {
 export const successVariants: Variants = {
   initial: {
     scale: 0,
-    rotate: -180,
+    rotate: -120,
   },
   animate: {
     scale: 1,
     rotate: 0,
     transition: {
-      type: "spring",
-      stiffness: 200,
-      damping: 15,
+      duration: 0.24,
+      ease: easing.easeOut,
     },
   },
 };
@@ -228,7 +228,7 @@ export const categoryExpandVariants: Variants = {
     height: 0,
     opacity: 0,
     transition: {
-      duration: 0.2,
+      duration: 0.14,
       ease: easing.smooth,
     },
   },
@@ -236,7 +236,7 @@ export const categoryExpandVariants: Variants = {
     height: "auto",
     opacity: 1,
     transition: {
-      duration: 0.3,
+      duration: 0.2,
       ease: easing.easeOut,
     },
   },
