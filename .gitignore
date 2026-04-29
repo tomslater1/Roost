@@ -17,6 +17,9 @@ out/
 .vscode/
 .next/
 
+# Claude Code per-machine settings
+.claude/settings.local.json
+
 # Logs
 *.log
 npm-debug.log*
