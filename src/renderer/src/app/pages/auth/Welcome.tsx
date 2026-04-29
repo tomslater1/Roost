@@ -25,11 +25,20 @@ function GoogleIcon() {
   )
 }
 
+function AppleIcon() {
+  return (
+    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.43c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.39-1.32 2.76-2.53 3.96M12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25" />
+    </svg>
+  )
+}
+
 export function Welcome() {
-  const { loading, googlePending, oauthError, clearOauthError } = useAuthContext()
+  const { loading, oauthPending, oauthError, clearOauthError } = useAuthContext()
   const [view, setView] = useState<View>("main")
   const [isLoading, setIsLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [appleLoading, setAppleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
   const [alreadyExists, setAlreadyExists] = useState(false)
@@ -38,7 +47,7 @@ export function Welcome() {
   const [resentDone, setResentDone] = useState(false)
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const { signIn, signUp, signInWithGoogle, resendConfirmation } = useAuth()
+  const { signIn, signUp, signInWithGoogle, signInWithApple, resendConfirmation } = useAuth()
 
   const passwordLongEnough = password.length >= 6
   const passwordsMatch = passwordLongEnough && confirmPassword.length > 0 && password === confirmPassword
@@ -68,6 +77,19 @@ export function Welcome() {
     } catch (e: any) {
       setError(e.message)
       setGoogleLoading(false)
+    }
+  }
+
+  const handleAppleAuth = async () => {
+    setAppleLoading(true)
+    clearOauthError()
+    setError(null)
+    try {
+      await signInWithApple()
+      setAppleLoading(false)
+    } catch (e: any) {
+      setError(e.message)
+      setAppleLoading(false)
     }
   }
 
@@ -127,7 +149,7 @@ export function Welcome() {
 
   // Show a full-screen loading state while Google OAuth tokens are being
   // processed after the page reload — prevents the sign-in form flashing.
-  if (loading || googlePending) {
+  if (loading || oauthPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <motion.div
@@ -145,9 +167,9 @@ export function Welcome() {
           </motion.div>
           <div className="text-center space-y-1">
             <p className="text-sm font-medium text-foreground">
-              {googlePending ? "Signing you in…" : "Loading…"}
+              {oauthPending ? "Signing you in…" : "Loading…"}
             </p>
-            {googlePending && (
+            {oauthPending && (
               <p className="text-xs text-muted-foreground">Just a moment while we set things up</p>
             )}
           </div>
@@ -218,18 +240,31 @@ export function Welcome() {
                     exit={{ opacity: 0, height: 0 }}
                     className="text-sm text-destructive overflow-hidden"
                   >
-                    Google sign-in failed: {oauthError}
+                    Sign-in failed: {oauthError}
                   </motion.p>
                 )}
               </AnimatePresence>
 
-              {/* Google — primary CTA */}
+              {/* Apple — primary CTA */}
+              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }} transition={spring}>
+                <Button
+                  variant="outline"
+                  className="w-full h-11 gap-2"
+                  onClick={handleAppleAuth}
+                  disabled={appleLoading || googleLoading || isLoading}
+                >
+                  <AppleIcon />
+                  {appleLoading ? "Connecting…" : "Sign in with Apple"}
+                </Button>
+              </motion.div>
+
+              {/* Google */}
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }} transition={spring}>
                 <Button
                   variant="outline"
                   className="w-full h-11 gap-2"
                   onClick={handleGoogleAuth}
-                  disabled={googleLoading || isLoading}
+                  disabled={appleLoading || googleLoading || isLoading}
                 >
                   <GoogleIcon />
                   {googleLoading ? "Connecting…" : "Sign in with Google"}
@@ -350,13 +385,26 @@ export function Welcome() {
               transition={{ duration: 0.3, ease }}
               className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-5"
             >
-              {/* Google — also works for new users */}
+              {/* Apple — also works for new users */}
+              <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }} transition={spring}>
+                <Button
+                  variant="outline"
+                  className="w-full h-11 gap-2"
+                  onClick={handleAppleAuth}
+                  disabled={appleLoading || googleLoading || isLoading}
+                >
+                  <AppleIcon />
+                  {appleLoading ? "Connecting…" : "Continue with Apple"}
+                </Button>
+              </motion.div>
+
+              {/* Google */}
               <motion.div whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }} transition={spring}>
                 <Button
                   variant="outline"
                   className="w-full h-11 gap-2"
                   onClick={handleGoogleAuth}
-                  disabled={googleLoading || isLoading}
+                  disabled={appleLoading || googleLoading || isLoading}
                 >
                   <GoogleIcon />
                   {googleLoading ? "Connecting…" : "Continue with Google"}

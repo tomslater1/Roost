@@ -15,7 +15,7 @@
     "typecheck": "npx tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
-    "gen:types": "npx supabase gen types typescript --project-id kfpjfhzgtejhzqdurkuu --schema public > src/renderer/src/types/database.types.ts"
+    "gen:types": "npx supabase gen types typescript --project-id kfpjfhzgtejhzqdurkuu --schema public > src/renderer/src/app/types/database.types.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

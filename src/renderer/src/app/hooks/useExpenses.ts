@@ -10,10 +10,9 @@ import { useHome } from './useHome'
 import { useRealtime } from './useRealtime'
 import { z } from 'zod'
 import { expenseSchema, expenseWithSplitsSchema, type ExpenseWithSplits, type CreateExpense } from '@/lib/schemas/expenses'
-import { customCategorySchema } from '@/lib/schemas/budgets'
 import { categorizeExpenseWithGate } from '@/lib/normalizeInput'
-import { mergeCategories } from '@/lib/categories'
 import { useSubscription } from './useSubscription'
+import { useBudgetTemplate } from './useBudgetTemplate'
 import { subDays } from 'date-fns'
 
 const QUERY_KEY = 'expenses'
@@ -25,29 +24,15 @@ export function useExpenses() {
   const queryClient = useQueryClient()
   const hasExpenseHistory = canAccess('expense_history')
   const canUseHazelCategorisation = canAccess('hazel_categorisation')
+  const { envelopeLines } = useBudgetTemplate()
 
   const invalidate = useCallback(
     () => queryClient.invalidateQueries({ queryKey: [QUERY_KEY, home?.id] }),
     [queryClient, home?.id]
   )
 
-  // Household categories — shared cache with useBudget (same query key).
-  // Used to give Hazel the exact category list for this home when normalizing expenses.
-  const customCatsQuery = useQuery({
-    queryKey: ['custom-categories', home?.id],
-    enabled: !!home?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('home_custom_categories')
-        .select('*')
-        .eq('home_id', home!.id)
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      return z.array(customCategorySchema).parse(data)
-    },
-  })
-
-  const allCategoryNames = mergeCategories(customCatsQuery.data ?? []).map((c) => c.name)
+  // Category names from Lifestyle budget template lines — used to ground Hazel's suggestions.
+  const allCategoryNames = envelopeLines.map((l) => l.name)
 
   // Fetch expenses with their splits in one round trip.
   // The balance and settle-up flow both require split data.
@@ -150,10 +135,9 @@ export function useExpenses() {
         canUseHazelCategorisation
       ).catch(() => ({ text: expense.title, category: undefined, gated: false }))
       // Hard-clamp Hazel's output to the household's known categories.
-      // If she returns something not in the list (e.g. an old preset the user hasn't added),
-      // fall back to 'Other' which is always present as a built-in.
+      // If she returns something not in the list, leave uncategorised.
       const validCategorySet = new Set(allCategoryNames)
-      const suggestedCategory = rawSuggested && validCategorySet.has(rawSuggested) ? rawSuggested : rawSuggested ? 'Other' : undefined
+      const suggestedCategory = rawSuggested && validCategorySet.has(rawSuggested) ? rawSuggested : undefined
       // Use Hazel's suggestion only if the user didn't manually pick a category.
       // Use || not ?? so that empty string "" also falls through to suggestedCategory.
       const category = expense.category || suggestedCategory

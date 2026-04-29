@@ -148,5 +148,22 @@ export function useAuth() {
     navigate('/welcome')
   }
 
-  return { session, user, loading, signUp, signIn, signInWithGoogle, resendConfirmation, joinHome, signOut, leaveHome, deleteAccount }
+  // Opens the system browser with an Apple OAuth URL.
+  // Supabase handles the Apple → Supabase callback server-side, then redirects
+  // back to roost://auth/callback with the session tokens in the hash.
+  async function signInWithApple() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: 'roost://auth/callback',
+        skipBrowserRedirect: true,
+      },
+    })
+    if (error) throw error
+    if (data.url) {
+      window.open(data.url)
+    }
+  }
+
+  return { session, user, loading, signUp, signIn, signInWithGoogle, signInWithApple, resendConfirmation, joinHome, signOut, leaveHome, deleteAccount }
 }

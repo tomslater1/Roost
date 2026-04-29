@@ -8,7 +8,7 @@ interface AuthContextValue {
   session: Session | null
   user: User | null
   loading: boolean
-  googlePending: boolean
+  oauthPending: boolean
   oauthError: string | null
   clearOauthError: () => void
 }
@@ -18,11 +18,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  // True when we've reloaded after a Google OAuth callback and are still
-  // processing the tokens (setSession → home check → navigate). Persisted in
-  // localStorage so it survives the page reload.
-  const [googlePending, setGooglePending] = useState(
-    () => !!localStorage.getItem('roost_google_pending')
+  // True when we've reloaded after an OAuth callback (Google or Apple) and are
+  // still processing the tokens (setSession → home check → navigate). Persisted
+  // in localStorage so it survives the page reload.
+  const [oauthPending, setOauthPending] = useState(
+    () => !!localStorage.getItem('roost_oauth_pending') || !!localStorage.getItem('roost_google_pending')
   )
   const [oauthError, setOauthError] = useState<string | null>(null)
   const navigate = useNavigate()
@@ -61,8 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
               const { data } = await supabase.auth.setSession({ access_token, refresh_token })
               const session = data?.session
               if (!session) {
-                localStorage.removeItem('roost_google_pending')
-                setGooglePending(false)
+                localStorage.removeItem('roost_oauth_pending')
+                setOauthPending(false)
                 return
               }
               // Query DB after setSession() returns (lock released). Running this
@@ -72,16 +72,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 
               // Clear the pending flag before navigating so the loading screen
               // disappears naturally as the new route mounts.
-              localStorage.removeItem('roost_google_pending')
-              setGooglePending(false)
+              localStorage.removeItem('roost_oauth_pending')
+              setOauthPending(false)
 
               // Existing user → dashboard. New user → /setup to pick a name and home.
               navigate(member ? '/dashboard' : '/setup')
             }, 0)
           } catch {
             // Malformed token data — clear flag and let user try again.
-            localStorage.removeItem('roost_google_pending')
-            setGooglePending(false)
+            localStorage.removeItem('roost_oauth_pending')
+            setOauthPending(false)
           }
         }
       }
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     return () => { clearTimeout(hangTimer); subscription.unsubscribe() }
   }, [])
 
-  // Google OAuth deep-link handler.
+  // OAuth deep-link handler (Google and Apple).
   // Tokens arrive via: roost://auth/callback#access_token=...&refresh_token=...
   // We store them under a non-sb- key (so pre-clearing ignores them) and
   // reload. On the next boot INITIAL_SESSION fires, picks them up above,
@@ -116,8 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       const oauthErr = qp.get('error')
       if (oauthErr) {
         const description = qp.get('error_description') ?? qp.get('error_code') ?? oauthErr
-        localStorage.removeItem('roost_google_pending')
-        setGooglePending(false)
+        localStorage.removeItem('roost_oauth_pending')
+        setOauthPending(false)
         setOauthError(description.replace(/\+/g, ' '))
         return
       }
@@ -126,7 +126,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       localStorage.setItem('roost_oauth_tokens', JSON.stringify({ access_token, refresh_token }))
       // Flag survives the reload and tells Welcome to show a loading screen
       // rather than the sign-in form while we're processing the tokens.
-      localStorage.setItem('roost_google_pending', '1')
+      // Clear legacy key in case it exists from an older app version
+      localStorage.removeItem('roost_google_pending')
+      localStorage.setItem('roost_oauth_pending', '1')
       window.location.reload()
     })
 
@@ -134,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   }, [])
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, googlePending, oauthError, clearOauthError: () => setOauthError(null) }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, oauthPending, oauthError, clearOauthError: () => setOauthError(null) }}>
       {children}
     </AuthContext.Provider>
   )

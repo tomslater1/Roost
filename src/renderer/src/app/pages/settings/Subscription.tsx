@@ -30,7 +30,7 @@ const INCLUDED = [
   {
     icon: WandSparkles,
     title: 'Hazel gets more helpful',
-    body: 'Nest unlocks Hazel’s expense categorisation, budget insights, and warmer financial guidance across your shared home life.',
+    body: "Nest unlocks Hazel's expense categorisation, budget insights, and warmer financial guidance across your shared home life.",
   },
   {
     icon: HeartHandshake,
@@ -40,7 +40,7 @@ const INCLUDED = [
   {
     icon: Shield,
     title: 'Your history stays safe either way',
-    body: 'Nothing disappears if you pause or cancel. Nest simply reveals more of the home you’ve already built together inside Roost.',
+    body: "Nothing disappears if you pause or cancel. Nest simply reveals more of the home you've already built together inside Roost.",
   },
 ]
 
@@ -76,6 +76,7 @@ export function Subscription() {
     stripeCustomerId,
     stripePriceId,
     hasUsedTrial,
+    isIosManaged,
   } = useSubscription()
   const { openUpgrade } = useSubscriptionUi()
 
@@ -87,6 +88,7 @@ export function Subscription() {
   const { redeem, isLoading: redeemingPromo, error: promoError, success: promoSuccess } = useRedeemPromo()
 
   useEffect(() => {
+    if (isIosManaged) return
     let cancelled = false
     window.api
       .stripeGetPrices()
@@ -97,7 +99,7 @@ export function Subscription() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isIosManaged])
 
   const currentPlan = useMemo(() => {
     if (!prices || !stripePriceId) return null
@@ -108,10 +110,10 @@ export function Subscription() {
 
   const promoErrorCopy = promoError
     ? {
-        not_found: "That code doesn’t look right — check it and try again.",
+        not_found: "That code doesn't look right — check it and try again.",
         already_redeemed: 'That code has already been used.',
         expired: 'That code has expired.',
-        already_have_lifetime: 'You already have lifetime Nest access — you’re all set.',
+        already_have_lifetime: "You already have lifetime Nest access — you're all set.",
         server_error: 'Something went wrong. Try again in a moment.',
       }[promoError]
     : null
@@ -162,7 +164,7 @@ export function Subscription() {
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary/30">
                       <Check className="w-4 h-4" />
                     </div>
-                    <span className="text-sm font-medium">You’re all set — welcome to Roost Nest.</span>
+                    <span className="text-sm font-medium">You're all set — welcome to Roost Nest.</span>
                   </motion.div>
                 ) : (
                   <>
@@ -232,18 +234,26 @@ export function Subscription() {
         <HeroCard
           badge="Roost Nest"
           icon={Crown}
-          title="You’re on Roost Nest"
+          title="You're on Roost Nest"
           description={`Free trial — ${trialDaysLeft} day${trialDaysLeft === 1 ? '' : 's'} remaining`}
-          body="You’re in the complete version of Roost right now — the deeper money view, the richer Hazel help, and the calmer planning tools built for your home."
+          body="You're in the complete version of Roost right now — the deeper money view, the richer Hazel help, and the calmer planning tools built for your home."
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-3xl border border-primary/20 bg-primary/10 p-4">
             <div className="space-y-1">
               <p className="text-base font-medium">Keep the complete Roost experience</p>
-              <p className="text-sm text-muted-foreground">Choose a Nest plan now so your home keeps the deeper view when the trial ends.</p>
+              <p className="text-sm text-muted-foreground">
+                {isIosManaged
+                  ? 'Subscribe on your iPhone before the trial ends to keep the full Roost experience.'
+                  : 'Choose a Nest plan now so your home keeps the deeper view when the trial ends.'}
+              </p>
             </div>
-            <Button className="h-12 text-base sm:min-w-[260px]" onClick={openUpgrade}>
-              Keep Nest — choose a plan
-            </Button>
+            {isIosManaged ? (
+              <p className="text-sm text-muted-foreground sm:text-right sm:min-w-[260px]">Open the Roost iOS app → Settings → Subscription</p>
+            ) : (
+              <Button className="h-12 text-base sm:min-w-[260px]" onClick={openUpgrade}>
+                Keep Nest — choose a plan
+              </Button>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -267,7 +277,7 @@ export function Subscription() {
             open={faqOpen}
             onToggle={() => setFaqOpen((v) => !v)}
             question="What happens when my trial ends?"
-            answer="If you decide not to keep Nest, Roost simply returns to the free plan. Your shared history, household data, and everything you’ve already put into Roost stays safe — Nest just reveals more of it."
+            answer="If you decide not to keep Nest, Roost simply returns to the free plan. Your shared history, household data, and everything you've already put into Roost stays safe — Nest just reveals more of it."
           />
         </HeroCard>
 
@@ -288,35 +298,42 @@ export function Subscription() {
           badgeAccent={<Badge className="bg-secondary/30 text-secondary-foreground hover:bg-secondary/30">Active</Badge>}
         >
           <div className="rounded-3xl border border-primary/20 bg-primary/10 p-4">
-            <p className="text-base font-medium">You’re on the complete version of Roost</p>
+            <p className="text-base font-medium">You're on the complete version of Roost</p>
             <p className="text-sm text-muted-foreground mt-1.5">Nest keeps the thoughtful parts of your shared home visible: the history, the patterns, and the calmer planning layer that grows more useful over time.</p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <InfoTile
               label="Current plan"
-              value={currentPlan ? `${currentPlan.label} · ${currentPlan.price}` : 'Roost Nest'}
+              value={isIosManaged ? 'Roost Nest' : (currentPlan ? `${currentPlan.label} \u00B7 ${currentPlan.price}` : 'Roost Nest')}
               description="One subscription covers the whole household."
             />
             <InfoTile
               label="Next billing"
               value={currentPeriodEnds ? `Renews ${format(currentPeriodEnds, 'd MMMM yyyy')}` : 'Billing date coming soon'}
-              description="Managed securely in Stripe."
+              description={isIosManaged ? 'Managed via iOS App Store.' : 'Managed securely in Stripe.'}
             />
           </div>
 
           <FeatureGrid items={INCLUDED.slice(0, 3)} />
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-muted/20 px-4 py-4">
-            <div>
-              <p className="text-sm font-medium">Need to update billing details or switch plans?</p>
-              <p className="text-sm text-muted-foreground mt-1">You can manage everything safely in Stripe’s customer portal.</p>
+          {isIosManaged ? (
+            <div className="rounded-2xl bg-muted/20 px-4 py-4">
+              <p className="text-sm font-medium">Subscription managed on iPhone</p>
+              <p className="text-sm text-muted-foreground mt-1">To update billing details, cancel, or switch plans, open the Roost app on your iPhone and go to Settings → Subscription.</p>
             </div>
-            <Button className="h-11 sm:min-w-[220px]" onClick={handlePortal} disabled={!stripeCustomerId || loadingPortal}>
-              <CreditCard className="w-4 h-4 mr-1.5" />
-              {loadingPortal ? 'Opening Stripe…' : 'Manage subscription'}
-            </Button>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl bg-muted/20 px-4 py-4">
+              <div>
+                <p className="text-sm font-medium">Need to update billing details or switch plans?</p>
+                <p className="text-sm text-muted-foreground mt-1">You can manage everything safely in Stripe's customer portal.</p>
+              </div>
+              <Button className="h-11 sm:min-w-[220px]" onClick={handlePortal} disabled={!stripeCustomerId || loadingPortal}>
+                <CreditCard className="w-4 h-4 mr-1.5" />
+                {loadingPortal ? 'Opening Stripe…' : 'Manage subscription'}
+              </Button>
+            </div>
+          )}
 
           <p className="text-sm text-muted-foreground">Thank you for supporting Roost.</p>
         </HeroCard>
@@ -334,21 +351,27 @@ export function Subscription() {
           icon={CreditCard}
           title="Payment issue"
           description="A small billing hiccup, nothing dramatic"
-          body="There was a problem with your last payment. Your Nest features are still active while you sort it out, so your home doesn’t suddenly feel interrupted."
+          body="There was a problem with your last payment. Your Nest features are still active while you sort it out, so your home doesn't suddenly feel interrupted."
           className="border-warning/25 bg-warning/8"
         >
           <div className="rounded-2xl bg-background/60 px-4 py-4">
             <p className="text-sm leading-6 text-muted-foreground">
-              Updating your payment method in Stripe should be all it takes. If anything feels off, you can reply to any Stripe receipt email and pick it up from there.
+              {isIosManaged
+                ? 'Your payment is managed via the iOS App Store. Open the Roost app on your iPhone to update your payment method.'
+                : 'Updating your payment method in Stripe should be all it takes. If anything feels off, you can reply to any Stripe receipt email and pick it up from there.'}
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button className="h-11 sm:min-w-[220px]" onClick={handlePortal} disabled={!stripeCustomerId || loadingPortal}>
-              Update payment method
-            </Button>
-            <p className="text-sm text-muted-foreground">Questions? Reply to any receipt email.</p>
-          </div>
+          {isIosManaged ? (
+            <p className="text-sm text-muted-foreground">Open the Roost iOS app → Settings → Subscription to fix the payment issue.</p>
+          ) : (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button className="h-11 sm:min-w-[220px]" onClick={handlePortal} disabled={!stripeCustomerId || loadingPortal}>
+                Update payment method
+              </Button>
+              <p className="text-sm text-muted-foreground">Questions? Reply to any receipt email.</p>
+            </div>
+          )}
         </HeroCard>
 
         {promoSection}
@@ -388,7 +411,7 @@ export function Subscription() {
       <HeroCard
         badge="Roost"
         icon={Sparkles}
-        title="You’re on the free plan"
+        title="You're on the free plan"
         description="A lighter version of Roost"
         body="Free keeps the basics moving, but Nest is where Roost becomes the full shared-home experience — the version with memory, rhythm, insight, and a much clearer picture of life together."
       >

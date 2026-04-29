@@ -80,6 +80,18 @@ contextBridge.exposeInMainWorld('api', {
   openMainWindow: () =>
     ipcRenderer.invoke('open-main-window'),
 
+  // App focus / blur — used by LockContext to trigger auto-lock timer.
+  onAppBlur: (callback: () => void) => {
+    ipcRenderer.on('app:blur', callback)
+  },
+  onAppFocus: (callback: () => void) => {
+    ipcRenderer.on('app:focus', callback)
+  },
+  removeAppWindowListeners: () => {
+    ipcRenderer.removeAllListeners('app:blur')
+    ipcRenderer.removeAllListeners('app:focus')
+  },
+
   // Subscribe to update status events pushed from the main process.
   onUpdateStatus: (callback: (status: unknown) => void) => {
     ipcRenderer.on('updater:status', (_event, status) => callback(status))

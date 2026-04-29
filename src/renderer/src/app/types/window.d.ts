@@ -58,6 +58,9 @@ interface Window {
     exportCalendar: (icsContent: string) => Promise<{ success?: boolean; error?: string } | undefined>
     openExternal: (url: string) => Promise<{ error?: string } | undefined>
     openMainWindow: () => Promise<void>
+    onAppBlur: (callback: () => void) => void
+    onAppFocus: (callback: () => void) => void
+    removeAppWindowListeners: () => void
     onUpdateStatus: (callback: (status: UpdateStatus) => void) => void
     removeUpdateStatusListener: () => void
     checkForUpdates: () => Promise<void>

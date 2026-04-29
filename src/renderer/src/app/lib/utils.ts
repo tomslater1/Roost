@@ -13,11 +13,11 @@ export function timeAgo(date: string | Date): string {
   return formatDistanceToNow(new Date(date), { addSuffix: true })
 }
 
-// Format a currency amount in GBP
-export function formatCurrency(amount: number): string {
+// Format a currency amount. Defaults to GBP; pass an ISO 4217 code to override.
+export function formatCurrency(amount: number, currency = 'GBP'): string {
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
-    currency: 'GBP',
+    currency,
   }).format(amount)
 }
 

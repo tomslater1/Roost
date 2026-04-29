@@ -19,3 +19,20 @@ verify_jwt = false
 # so gateway JWT verification must be disabled.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# stripe-checkout and stripe-portal do their own auth inside the function body
+# (validating the Supabase JWT via supabase.auth.getUser). Gateway JWT verification
+# must be disabled so the iOS Supabase Functions client can reach them — the gateway
+# and the iOS SDK use subtly different JWT formats that cause 401s at the gateway level.
+[functions.stripe-checkout]
+verify_jwt = false
+
+[functions.stripe-portal]
+verify_jwt = false
+
+# budget-insights does its own auth verification inside the function body so the
+# iOS app can call it via the Supabase Functions client without the gateway
+# rejecting the JWT before the function gets a chance to validate membership and
+# subscription access.
+[functions.budget-insights]
+verify_jwt = false

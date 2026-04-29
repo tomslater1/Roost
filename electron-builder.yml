@@ -21,6 +21,11 @@ publish:
   releaseType: draft
 mac:
   icon: resources/Icon.icns
+  identity: "Thomas Slater (7CAU82Q3B8)"
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
   target:
     - target: dmg
       arch: universal
@@ -29,7 +34,8 @@ mac:
   extendInfo:
     NSCameraUsageDescription: Application requests access to the device's camera.
     NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-  notarize: false
+  # Notarization uses APPLE_ID, APPLE_APPSPECIFIC_PASSWORD, and APPLE_TEAM_ID env vars.
+  notarize: true
 dmg:
   artifactName: Roost.dmg
   contents:

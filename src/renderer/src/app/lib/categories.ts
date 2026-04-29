@@ -1,9 +1,22 @@
 export interface Category {
-  name: string    // stored in expenses.category and budgets.category
-  emoji: string   // fallback for custom categories (stored in home_custom_categories.emoji)
+  id?: string       // budget_template_lines.id when derived from template
+  name: string      // stored in expenses.category and budget_template_lines.name
+  emoji?: string    // optional — not present on template-derived categories
   iconName?: string // Lucide icon component name — used for all built-in and preset categories
-  color: string   // key into COLOR_CLASSES
+  color?: string    // key into COLOR_CLASSES — optional for template-derived categories
   isCustom?: boolean
+}
+
+/**
+ * Derive a stable hex colour from a category name.
+ * Uses the same palette and hash algorithm as getCategoryColor in MoneyShared
+ * so every surface that displays a category uses the same colour.
+ */
+export function deriveCategoryColour(name: string): string {
+  const palette = ["#d4795e", "#9db19f", "#e6a563", "#b88b7e", "#7fa087"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return palette[Math.abs(hash) % palette.length];
 }
 
 // ── Core categories ─────────────────────────────────────────────────────────

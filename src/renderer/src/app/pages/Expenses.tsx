@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router";
+import { ExpenseQuickAddSheet } from "../components/expenses/ExpenseQuickAddSheet";
 import { ArrowUpRight, Wallet, Receipt, Trash2, Handshake, Plus, Filter, Repeat, User, Users, Sparkles, Check } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
@@ -30,6 +31,7 @@ export function Expenses() {
   const [searchParams] = useSearchParams();
 
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showSettleUp, setShowSettleUp] = useState(false);
   const [filterCategory, setFilterCategory] = useState(searchParams.get("category") ?? "all");
   const [filterPayer, setFilterPayer] = useState("all");
@@ -123,7 +125,7 @@ export function Expenses() {
               Track shared and personal spending
             </p>
           </div>
-          <Button className="gap-2" onClick={() => setShowAddExpense(true)}>
+          <Button className="gap-2" onClick={() => setShowQuickAdd(true)}>
             <Plus className="w-4 h-4" />
             Add expense
           </Button>
@@ -358,7 +360,7 @@ export function Expenses() {
                 icon={Receipt}
                 title="No expenses yet"
                 description="Add your first shared expense and it'll appear here."
-                action={{ label: "Add expense", onClick: () => setShowAddExpense(true) }}
+                action={{ label: "Add expense", onClick: () => setShowQuickAdd(true) }}
               />
             )}
             {!isExpensesLoading && expenses.length > 0 && sortedExpenses.length === 0 && (
@@ -705,6 +707,12 @@ export function Expenses() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Quick-add expense sheet */}
+      <ExpenseQuickAddSheet
+        isOpen={showQuickAdd}
+        onClose={() => setShowQuickAdd(false)}
+      />
 
       {/* Settle Up Modal */}
       <SettleUpModal open={showSettleUp} onOpenChange={setShowSettleUp} />

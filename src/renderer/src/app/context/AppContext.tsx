@@ -15,6 +15,16 @@ import { useCalendarEvents as useRealCalendarEvents } from "@/hooks/useCalendarE
 import { useBudget } from "@/hooks/useBudget";
 import { useActivityFeed } from "@/hooks/useActivityFeed";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useHouseholdIncome } from "@/hooks/useHouseholdIncome";
+import { useSavingsGoals } from "@/hooks/useSavingsGoals";
+import { useRecurringBills } from "@/hooks/useRecurringBills";
+import { useMonthlySummary } from "@/hooks/useMonthlySummary";
+import { useBudgetTemplate } from "@/hooks/useBudgetTemplate";
+import { useMoneySettings } from "@/hooks/useMoneySettings";
+import type { BudgetTemplateLine, AddTemplateLineData, UpdateTemplateLineData } from "@/hooks/useBudgetTemplate";
+import type { HouseholdIncome, SavingsGoal, RecurringBill, MonthlySummary, CreateHouseholdIncome, CreateSavingsGoal, UpdateSavingsGoal, CreateRecurringBill, UpdateRecurringBill, ProRequiredError } from "@/lib/schemas/money";
+import type { BillOccurrence } from "@/hooks/useRecurringBills";
+import type { UseMutationResult } from "@tanstack/react-query";
 import type { HomeMember } from "@/lib/schemas/home";
 import type { ExpenseWithSplits } from "@/lib/schemas/expenses";
 import { getInitials } from "@/lib/utils";
@@ -138,6 +148,13 @@ interface AppContextType {
   addCalendarEvent: (event: Omit<CalendarEvent, "id">) => void;
   updateCalendarEvent: (id: string, event: Partial<CalendarEvent>) => void;
   deleteCalendarEvent: (id: string) => void;
+  /** Live Lifestyle budget lines as categories — the single source of truth. */
+  categories: Category[];
+  /** True when at least one Lifestyle budget line exists. */
+  hasCategories: boolean;
+  /** Case-insensitive lookup by category name. */
+  getCategoryByName: (name: string) => Category | undefined;
+  /** Alias kept for backward compat with Expenses.tsx, Pinboard.tsx etc. */
   allCategories: Category[];
   budgetCategories: BudgetCategory[];
   updateBudgetCategory: (id: string, category: Partial<BudgetCategory>) => void;
@@ -154,6 +171,52 @@ interface AppContextType {
   isChoresLoading: boolean;
   hasFullExpenseHistory: boolean;
   expenseHistoryCutoffDate: Date | null;
+  // ── Money section ──────────────────────────────────────────────────────────
+  incomeRows: HouseholdIncome[];
+  getIncomeForMonth: (month: Date) => HouseholdIncome | undefined;
+  setIncome: UseMutationResult<void, Error, CreateHouseholdIncome, { previous: HouseholdIncome[] | undefined }>;
+  isHouseholdIncomeLoading: boolean;
+  goals: SavingsGoal[];
+  activeGoals: SavingsGoal[];
+  completedGoals: SavingsGoal[];
+  addGoal: UseMutationResult<SavingsGoal, Error | ProRequiredError, CreateSavingsGoal, { previous: SavingsGoal[] | undefined }>;
+  updateGoal: UseMutationResult<void, Error, { id: string; data: UpdateSavingsGoal }, { previous: SavingsGoal[] | undefined }>;
+  deleteGoal: UseMutationResult<void, Error, { id: string }, { previous: SavingsGoal[] | undefined }>;
+  completeGoal: UseMutationResult<void, Error, { id: string }, { previous: SavingsGoal[] | undefined }>;
+  addToGoal: UseMutationResult<void, Error, { id: string; amount: number }, { previous: SavingsGoal[] | undefined }>;
+  setGoalContribution: UseMutationResult<void, Error, { id: string; amount: number; day: number }, unknown>;
+  removeGoalContribution: UseMutationResult<void, Error, { id: string }, unknown>;
+  isSavingsGoalsLoading: boolean;
+  bills: RecurringBill[];
+  addBill: UseMutationResult<RecurringBill, Error | ProRequiredError, CreateRecurringBill, { previous: RecurringBill[] | undefined }>;
+  updateBill: UseMutationResult<void, Error, { id: string; data: UpdateRecurringBill }, { previous: RecurringBill[] | undefined }>;
+  deactivateBill: UseMutationResult<void, Error, { id: string }, { previous: RecurringBill[] | undefined }>;
+  getBillsForDateRange: (start: Date, end: Date) => BillOccurrence[];
+  isRecurringBillsLoading: boolean;
+  summary: MonthlySummary | undefined;
+  isMonthlySummaryLoading: boolean;
+  monthlySummaryError: Error | null;
+  selectedSummaryMonth: Date;
+  setSelectedSummaryMonth: (month: Date) => void;
+  // ── Budget template ────────────────────────────────────────────────────────
+  templateLines: BudgetTemplateLine[];
+  fixedLines: BudgetTemplateLine[];
+  envelopeLines: BudgetTemplateLine[];
+  linesBySection: Record<string, BudgetTemplateLine[]>;
+  addTemplateLine: UseMutationResult<void, Error, AddTemplateLineData, unknown>;
+  updateTemplateLine: UseMutationResult<void, Error, { id: string; data: UpdateTemplateLineData }, { previous: BudgetTemplateLine[] | undefined }>;
+  removeTemplateLine: UseMutationResult<void, Error, { id: string }, { previous: BudgetTemplateLine[] | undefined }>;
+  migrateTemplate: UseMutationResult<void, Error, void, unknown>;
+  totalFixed: number;
+  totalEnvelopes: number;
+  totalBudgeted: number;
+  isTemplateLoading: boolean;
+  // ── Global money preferences ───────────────────────────────────────────────
+  scrambleMode: boolean;
+  toggleScrambleMode: () => Promise<void>;
+  defaultExpenseSplit: number;
+  budgetCarryForward: 'auto' | 'manual';
+  overspendAlertThreshold: number;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -193,6 +256,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const budgetHook = useBudget({ expenses: expensesHook.expenses as ExpenseWithSplits[] });
   const activityHook = useActivityFeed();
   const notificationsHook = useNotifications();
+  const householdIncomeHook = useHouseholdIncome();
+  const savingsGoalsHook = useSavingsGoals();
+  const recurringBillsHook = useRecurringBills();
+  const monthlySummaryHook = useMonthlySummary();
+  const budgetTemplateHook = useBudgetTemplate();
+  const moneySettingsHook = useMoneySettings();
 
   // ── Current user identity ─────────────────────────────────────────────
   const currentMember = members.find((m) => m.user_id === user?.id);
@@ -422,8 +491,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateCalendarEvent = useCallback((_id: string, _event: Partial<CalendarEvent>) => {}, []);
   const deleteCalendarEvent = useCallback((_id: string) => {}, []);
 
-  // ── Budget ────────────────────────────────────────────────────────────
-  const allCategories: Category[] = budgetHook.allCategories;
+  // ── Categories — derived from Lifestyle (envelope) budget template lines ──
+  // This is the single source of truth. home_custom_categories is deprecated.
+  const categories: Category[] = budgetTemplateHook.categories;
+  const hasCategories: boolean = budgetTemplateHook.hasCategories;
+  const getCategoryByName = budgetTemplateHook.getCategoryByName;
+  // Alias for backward compat with Expenses.tsx, Pinboard.tsx etc.
+  const allCategories: Category[] = categories;
 
   const budgetCategories: BudgetCategory[] = [
     ...(budgetHook.summary?.budgeted ?? []),
@@ -520,6 +594,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addCalendarEvent,
     updateCalendarEvent,
     deleteCalendarEvent,
+    categories,
+    hasCategories,
+    getCategoryByName,
     allCategories,
     budgetCategories,
     updateBudgetCategory,
@@ -537,6 +614,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isChoresLoading: choresHook.isLoading,
     hasFullExpenseHistory: expensesHook.hasFullHistory,
     expenseHistoryCutoffDate: expensesHook.historyCutoffDate,
+    // ── Money section ────────────────────────────────────────────────────────
+    incomeRows: householdIncomeHook.incomeRows,
+    getIncomeForMonth: householdIncomeHook.getIncomeForMonth,
+    setIncome: householdIncomeHook.setIncome,
+    isHouseholdIncomeLoading: householdIncomeHook.isLoading,
+    goals: savingsGoalsHook.goals,
+    activeGoals: savingsGoalsHook.activeGoals,
+    completedGoals: savingsGoalsHook.completedGoals,
+    addGoal: savingsGoalsHook.addGoal,
+    updateGoal: savingsGoalsHook.updateGoal,
+    deleteGoal: savingsGoalsHook.deleteGoal,
+    completeGoal: savingsGoalsHook.completeGoal,
+    addToGoal: savingsGoalsHook.addToGoal,
+    setGoalContribution: savingsGoalsHook.setGoalContribution,
+    removeGoalContribution: savingsGoalsHook.removeGoalContribution,
+    isSavingsGoalsLoading: savingsGoalsHook.isLoading,
+    bills: recurringBillsHook.bills,
+    addBill: recurringBillsHook.addBill,
+    updateBill: recurringBillsHook.updateBill,
+    deactivateBill: recurringBillsHook.deactivateBill,
+    getBillsForDateRange: recurringBillsHook.getBillsForDateRange,
+    isRecurringBillsLoading: recurringBillsHook.isLoading,
+    summary: monthlySummaryHook.summary,
+    isMonthlySummaryLoading: monthlySummaryHook.isLoading,
+    monthlySummaryError: monthlySummaryHook.error,
+    selectedSummaryMonth: monthlySummaryHook.selectedMonth,
+    setSelectedSummaryMonth: monthlySummaryHook.setSelectedMonth,
+    // ── Budget template ──────────────────────────────────────────────────────
+    templateLines: budgetTemplateHook.templateLines,
+    fixedLines: budgetTemplateHook.fixedLines,
+    envelopeLines: budgetTemplateHook.envelopeLines,
+    linesBySection: budgetTemplateHook.linesBySection,
+    addTemplateLine: budgetTemplateHook.addLine,
+    updateTemplateLine: budgetTemplateHook.updateLine,
+    removeTemplateLine: budgetTemplateHook.removeLine,
+    migrateTemplate: budgetTemplateHook.migrate,
+    totalFixed: budgetTemplateHook.totalFixed,
+    totalEnvelopes: budgetTemplateHook.totalEnvelopes,
+    totalBudgeted: budgetTemplateHook.totalBudgeted,
+    isTemplateLoading: budgetTemplateHook.isLoading,
+    // ── Global money preferences ─────────────────────────────────────────────
+    scrambleMode: moneySettingsHook.scrambleMode,
+    toggleScrambleMode: moneySettingsHook.toggleScrambleMode,
+    defaultExpenseSplit: moneySettingsHook.defaultSplit,
+    budgetCarryForward: moneySettingsHook.budgetCarryForward,
+    overspendAlertThreshold: moneySettingsHook.overspendAlertThreshold,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

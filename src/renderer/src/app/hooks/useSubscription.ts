@@ -60,6 +60,13 @@ export function useSubscription() {
     }
   }
 
+  // True when the active/trialing/past_due subscription was created via iOS
+  // (RevenueCat) rather than Stripe — identified by the absence of a Stripe
+  // customer ID on an otherwise live subscription.
+  const isIosManaged =
+    (status === 'active' || status === 'trialing' || status === 'past_due') &&
+    !home?.stripe_customer_id
+
   return {
     isNest,
     isTrial,
@@ -73,6 +80,7 @@ export function useSubscription() {
     stripeCustomerId: home?.stripe_customer_id ?? null,
     stripePriceId: home?.stripe_price_id ?? null,
     hasUsedTrial: !!home?.has_used_trial,
+    isIosManaged,
     canAccess,
   }
 }

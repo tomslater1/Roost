@@ -124,12 +124,27 @@ serve(async (req) => {
       })
     }
 
-    const { error: homeUpdateError } = await serviceClient
-      .from('homes')
-      .update({
+    // Determine what access to grant based on code type
+    let homeUpdate: Record<string, unknown>
+    if (promoCode.type === 'timed_nest' && promoCode.grants_access_days) {
+      const accessUntil = new Date()
+      accessUntil.setDate(accessUntil.getDate() + promoCode.grants_access_days)
+      homeUpdate = {
+        subscription_status: 'active',
+        subscription_tier: 'nest',
+        current_period_ends_at: accessUntil.toISOString(),
+      }
+    } else {
+      // lifetime_nest (default)
+      homeUpdate = {
         subscription_status: 'lifetime',
         subscription_tier: 'nest',
-      })
+      }
+    }
+
+    const { error: homeUpdateError } = await serviceClient
+      .from('homes')
+      .update(homeUpdate)
       .eq('id', homeId)
 
     if (homeUpdateError) {

@@ -17,9 +17,9 @@ const shortcuts: Shortcut[] = [
   { keys: ["Cmd/Ctrl", "K"], description: "Open search" },
   { keys: ["G", "D"], description: "Go to Dashboard" },
   { keys: ["G", "S"], description: "Go to Shopping" },
-  { keys: ["G", "E"], description: "Go to Expenses" },
+  { keys: ["G", "E"], description: "Go to Spending" },
   { keys: ["G", "C"], description: "Go to Chores" },
-  { keys: ["G", "B"], description: "Go to Budget" },
+  { keys: ["G", "B"], description: "Go to Money" },
   { keys: ["Cmd/Ctrl", "Shift", "L"], description: "Toggle theme" },
   { keys: ["N", "S"], description: "New shopping item" },
   { keys: ["N", "E"], description: "New expense" },
@@ -89,9 +89,9 @@ export function KeyboardShortcuts() {
         switch (key) {
           case "d": navigate("/dashboard"); break;
           case "s": navigate("/shopping"); break;
-          case "e": navigate("/expenses"); break;
+          case "e": navigate("/money/spending"); break;
           case "c": navigate("/chores"); break;
-          case "b": navigate("/budget"); break;
+          case "b": navigate("/money"); break;
         }
         return;
       }

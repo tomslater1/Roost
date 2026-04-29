@@ -15,12 +15,14 @@ interface OnboardingStep {
 }
 
 const steps: OnboardingStep[] = [
+  // Step 0 — Welcome
   {
     title: "Welcome to Roost! 🏡",
     description: "Let's take a quick tour to show you how to manage your household together. This will only take a minute!",
     route: "/dashboard",
     placement: "center",
   },
+  // Step 1 — Balance card (dashboard)
   {
     target: "[data-onboarding='balance-card']",
     title: "Track your balance",
@@ -28,6 +30,7 @@ const steps: OnboardingStep[] = [
     route: "/dashboard",
     placement: "top",
   },
+  // Step 2 — Quick actions
   {
     target: "[data-onboarding='quick-actions']",
     title: "Quick actions",
@@ -35,6 +38,7 @@ const steps: OnboardingStep[] = [
     route: "/dashboard",
     placement: "bottom",
   },
+  // Step 3 — Notifications
   {
     target: "[data-onboarding-trigger='notifications']",
     title: "Stay in sync",
@@ -42,6 +46,7 @@ const steps: OnboardingStep[] = [
     route: "/dashboard",
     placement: "bottom",
   },
+  // Step 4 — Shopping
   {
     target: "[data-onboarding='nav-shopping']",
     title: "Shopping lists",
@@ -49,25 +54,31 @@ const steps: OnboardingStep[] = [
     route: "/shopping",
     placement: "top",
   },
+  // Step 5 — Money hub (replaces old Expense tracking + Manage expenses steps)
   {
-    title: "Organise your shopping",
-    description: "Items are automatically categorised. Check them off as you shop, and clear completed items when you're done.",
-    route: "/shopping",
-    placement: "center",
-  },
-  {
-    target: "[data-onboarding='nav-expenses']",
-    title: "Expense tracking",
-    description: "Log all your shared expenses and bills. Roost keeps track of who paid what.",
-    route: "/expenses",
+    target: "[data-onboarding='nav-budget']",
+    title: "Money",
+    description: "Money is your household financial hub. Log what you spend, set budgets, track bills, and save toward goals — together.",
+    route: "/money",
     placement: "top",
   },
+  // Step 6 — Balance card on Money (NEW)
   {
-    title: "Manage expenses easily",
-    description: "Add one-off purchases or recurring bills. Track categories, split types, and see your spending patterns.",
-    route: "/expenses",
-    placement: "center",
+    target: "[data-onboarding='money-balance-card']",
+    title: "Who's paid more?",
+    description: "The balance card shows who's paid more this month. Tap Settle up when you're ready to square things off.",
+    route: "/money",
+    placement: "top",
   },
+  // Step 7 — Bills & Goals (NEW)
+  {
+    target: "[data-onboarding='money-bills-goals']",
+    title: "Bills & Goals",
+    description: "Add your regular bills like rent and broadband. Roost puts them in a calendar so nothing sneaks up on you.",
+    route: "/money",
+    placement: "top",
+  },
+  // Step 8 — Chores
   {
     target: "[data-onboarding='nav-chores']",
     title: "Chore management",
@@ -75,6 +86,7 @@ const steps: OnboardingStep[] = [
     route: "/chores",
     placement: "top",
   },
+  // Step 9 — Calendar
   {
     target: "[data-onboarding='nav-calendar']",
     title: "Shared calendar",
@@ -82,6 +94,7 @@ const steps: OnboardingStep[] = [
     route: "/calendar",
     placement: "top",
   },
+  // Step 10 — Profile / settings
   {
     target: "[data-onboarding-trigger='profile']",
     title: "Customise your experience",
@@ -89,6 +102,7 @@ const steps: OnboardingStep[] = [
     route: "/dashboard",
     placement: "bottom",
   },
+  // Step 11 — Done
   {
     title: "You're all set! 🎉",
     description: "You now know the basics of Roost. Start managing your household together and make life a little easier!",

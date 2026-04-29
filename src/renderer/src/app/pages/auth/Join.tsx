@@ -28,10 +28,10 @@ type Step = "options" | "email-form";
 
 export function Join() {
   const navigate = useNavigate();
-  const { googlePending, loading } = useAuthContext();
+  const { oauthPending, loading } = useAuthContext();
   const { joinHome, signInWithGoogle } = useAuth();
 
-  if (loading || googlePending) {
+  if (loading || oauthPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <motion.div
@@ -49,9 +49,9 @@ export function Join() {
           </motion.div>
           <div className="text-center space-y-1">
             <p className="text-sm font-medium text-foreground">
-              {googlePending ? "Signing you in…" : "Loading…"}
+              {oauthPending ? "Signing you in…" : "Loading…"}
             </p>
-            {googlePending && (
+            {oauthPending && (
               <p className="text-xs text-muted-foreground">Just a moment while we set things up</p>
             )}
           </div>

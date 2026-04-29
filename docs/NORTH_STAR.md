@@ -27,6 +27,8 @@ These are the filters every decision gets measured against.
 
 **Build the foundation once.** Architectural decisions — the database schema, RLS policies, the Supabase client, the Zod schemas — should be made carefully and not revisited. Features get built on top. The foundation does not move.
 
+**No hardcoded names.** Roost ships to the App Store for any couple — never use "Tom", "Beth", or any personal names in code, UI strings, comments, or documentation examples. Use `currentUser`/`partnerName` from `AppContext`, or `me`/`partner` in internal variable names, and `[User]`/`[Partner]` as placeholders in written examples. Database columns that represent per-member splits must use generic names (`member1_percentage`, not `tom_percentage`).
+
 ---
 
 ## 🗺 The Roadmap
@@ -77,7 +79,7 @@ Phase 2 locked down the architecture. Phase 3 will define the visual language. P
 
 - [ ] **Shopping list enhancements** — Build out the shopping section beyond the basics. Features to add: (1) **Next shop date** — a date input at the top of the shopping list page that saves to `homes.next_shop_date` and shows a visible countdown ("Shopping in 3 days / tomorrow / today"). This already has a database column from migration 0006. (2) **Category grouping** — when items have a category assigned, group them under collapsible headers (Produce, Dairy, Bakery, etc.) so the list is easier to navigate in-store. Ungrouped items fall under "Other". (3) **Quick-add from keyboard** — pressing Enter after typing an item name immediately submits and refocuses the input, allowing rapid successive additions without reaching for the mouse.
 
-- [ ] **Chore improvements** — Flesh out the chores section to make it genuinely useful for a couple managing a home. Features to add: (1) **Completion history** — a simple log of recent completions ("Tom completed 'Clean bathroom' · 2 days ago") visible in the chore detail or as a subtle history row. (2) **Overdue indicator** — chores past their due date are visually flagged (a red date label) and sorted to the top of the list. (3) **Chore streaks** — for recurring chores, show a small streak counter ("✓ 4 weeks in a row") as a light motivational touch. This requires tracking completion timestamps, which are already stored in `last_completed_at`. (4) **Unassigned chores view** — a visual indicator that a chore has no assignee, prompting someone to pick it up.
+- [ ] **Chore improvements** — Flesh out the chores section to make it genuinely useful for a couple managing a home. Features to add: (1) **Completion history** — a simple log of recent completions ("[User] completed 'Clean bathroom' · 2 days ago") visible in the chore detail or as a subtle history row. (2) **Overdue indicator** — chores past their due date are visually flagged (a red date label) and sorted to the top of the list. (3) **Chore streaks** — for recurring chores, show a small streak counter ("✓ 4 weeks in a row") as a light motivational touch. This requires tracking completion timestamps, which are already stored in `last_completed_at`. (4) **Unassigned chores view** — a visual indicator that a chore has no assignee, prompting someone to pick it up.
 
 - [ ] **Calendar page (full build)** — The Calendar page is currently a "coming soon" placeholder. Promote the calendar feature plan (already designed in detail) from backlog to Phase 2.5. This includes: a month grid view with event dots, an upcoming events list below the grid aggregating chores with due dates and expenses with dates/recurrence, and an Apple Calendar sync button that opens a webcal:// subscription. The webcal feed is served by a Supabase Edge Function authenticated by a per-home `calendar_token`. This is a complete, production-quality calendar, not a stub. Full implementation details are documented in the calendar feature plan.
 
@@ -188,7 +190,7 @@ Up to this point, Roost has been running on a shared Supabase project that I man
 
 - [ ] **Realtime two-account test** — Verify real-time sync works end-to-end with two logged-in accounts on separate Macs. Confirm changes appear instantly on the other machine without a manual refresh. This is the core feature — must pass before anything else in Phase 4.
 - [x] **Shopping list enhancements** — (1) Next shop date countdown at the top of the Shopping page, pulling from `homes.next_shop_date` ("Shopping in 3 days / tomorrow / today"). (2) Category grouping — when items have a category, group them under collapsible headers in-store order. Ungrouped items fall under "Other".
-- [x] **Chore improvements** — (1) Overdue indicator — chores past due date sorted to the top with a red date label (already partially in place). (2) Completion history — a subtle log of recent completions visible in the chore list ("Tom · 2 days ago"). (3) Streaks — for recurring chores, show a small streak counter ("✓ 4 weeks in a row") using `last_completed_at`. (4) Unassigned chores — visual indicator when a chore has no assignee.
+- [x] **Chore improvements** — (1) Overdue indicator — chores past due date sorted to the top with a red date label (already partially in place). (2) Completion history — a subtle log of recent completions visible in the chore list ("[User] · 2 days ago"). (3) Streaks — for recurring chores, show a small streak counter ("✓ 4 weeks in a row") using `last_completed_at`. (4) Unassigned chores — visual indicator when a chore has no assignee.
 - [x] **DatePicker on all remaining date inputs** — Audit every date input in the app and confirm the reusable `DatePicker` component is used everywhere. Replace any remaining raw `<input type="date">` instances.
 
 **Features to build:**
@@ -459,6 +461,21 @@ Things that were done quickly or need revisiting. Be honest here — this is not
 
 **Stripe Tax** — Enable Stripe Tax in the Stripe dashboard before going live with real payments.
 
+### UI terminology conventions
+
+**`budget_type = 'envelope'` → displayed as "Lifestyle" in the UI** — The database column `budget_type` on `budget_template_lines` and `budgets` stores the value `'envelope'`. In all user-facing copy (badges, labels, descriptions, sheet titles, button text) this is shown as "Lifestyle" or "lifestyle budget". The database value, TypeScript types, hook variable names (`envelopeLines`, `totalEnvelopes`, `getEnvelopes`, `getRemainingInEnvelope`), and Zod schema field names must never be changed to match the UI label — they remain as `envelope`. Only what the user reads on screen uses the Lifestyle terminology.
+
+### Category system architecture (from Session 32)
+
+**Categories are Lifestyle budget template lines — not a separate concept.** The `home_custom_categories` table and the `BUILT_IN_CATEGORIES` array are deprecated. The authoritative category list for a home is `budget_template_lines` where `budget_type = 'envelope'`. When a Lifestyle budget line is created, it becomes a category. Fixed lines (rent, broadband, Netflix) are never categories.
+
+- `useBudgetTemplate` exposes `categories`, `getCategoryByName`, `hasCategories` — derived from `envelopeLines`.
+- `AppContext.allCategories` is an alias for `budgetTemplateHook.categories`.
+- `ExpenseQuickAddSheet` uses `categories`/`hasCategories`. If no lines exist, it shows a "Set up your budget first" prompt linking to `/money/budgets`. Submitting with no category saves `null` (not `"Other"`).
+- `Spending.tsx` bars are driven by `envelopeLines`. Orphaned expenses (category not matching any line) appear in an "Uncategorised" row.
+- `home_custom_categories` is kept for data safety but is no longer written to. See migration 0037.
+- `BudgetCategories.tsx` settings page was deleted. Route `/settings/budget-categories` redirects to `/money/budgets`.
+
 ### Architectural decisions that should not change
 
 **Zod as single source of truth** — TypeScript types are derived from Zod schemas, never written separately. Do not break this pattern.
@@ -492,6 +509,964 @@ Things that were done quickly or need revisiting. Be honest here — this is not
 ---
 
 ## 📅 Session Log
+
+### Session 38 — 12 April 2026 — Overview screen: five bug fixes (bars, chart, Zone 4, category mover)
+
+Five targeted fixes to `pages/money/Overview.tsx`. No new features. No structural changes.
+
+**Fix 1 — Income bar colour:** Income bar was using `bg-accent/60` (a peachy tint that could be misread as semantic). Changed to `rgba(61, 50, 41, 0.12)` inline style — a muted warm baseline that reads as "full income" without any connotation. Fixed costs bar stays terracotta `#d4795e`.
+
+**Fix 2 — Spending trend chart showing no bars:** Root cause: the chart container used `flex items-end` instead of `items-stretch`. Because child columns had no explicit height, their inner `style={{ height: "100%" }}` resolved to 0px and every `motion.div` animated from 0 to 0. Fixed by separating chart area from label row. Chart area: `flex h-40 items-stretch` — columns now fill the full 40-row height via stretch. Each column: `relative flex-1 flex items-end` — bars use `absolute bottom-0 height: X%` of a real pixel height. Month labels moved to a separate `<div className="flex gap-2.5 mt-2">` row beneath the chart. Removed unused `containerRef` / `useRef` import. Months with no expense data show no bar element (not a stub).
+
+**Fix 3 — Zone 4 goal contributions mixed with bills:** Goal contributions (savings goals with `monthly_contribution`) were rendered inline with upcoming bills, making it ambiguous what each row represented. Now rendered in two clearly labelled subsections: "BILLS" (10px uppercase muted label) and "GOAL CONTRIBUTIONS" (same style). The `Target` lucide icon replaced with a custom `GoalRing` — a 16px SVG ring in the goal's own colour, no fill. Removed the `✓` checkmark that showed on past contribution rows.
+
+**Fix 4 — Past bills count not expandable:** The "X bills already out this month" row was a static `<div>`. Replaced with a `<button>` that toggles `pastBillsExpanded` state. Chevron rotates 90° when open. `AnimatePresence` animates height from 0 to auto when expanded. Expanded list shows each past bill: name, due date ordinal, amount.
+
+**Fix 5 — Category mover referencing fixed cost names:** The biggest-mover calculation iterated all category names from expense history. Old expense records categorised under names like "Rent" (before it was modelled as a fixed line) caused the mover to say "Rent is down 100% vs last month." Fixed by building `envelopeNames = new Set(envelopeLines.map(l => l.name.toLowerCase()))` and skipping any category not in that set. Added `envelopeLines` to the `useMemo` dependency array.
+
+**Other cleanup:** Removed unused `Target` import from lucide-react (replaced by `GoalRing`). Removed `useRef` import (was only used by the now-removed `containerRef` in TrendChart).
+
+**Verification:** `npx tsc --noEmit` → zero errors.
+
+---
+
+### Session 37 — 12 April 2026 — Overview screen: complete rebuild, all six zones, data errors fixed
+
+Complete ground-up rebuild of `pages/money/Overview.tsx`. The old implementation had fundamental data errors and did not connect properly to the budget system. Deleted and rewritten from scratch. No other screens or hooks were modified.
+
+**Data errors fixed:**
+
+- **Error 1 — Fixed costs showing £0:** Old code read fixed costs from `useMonthlySummary` (backed by the deprecated `recurring_bills` table). New code reads `totalFixed` from `useBudgetTemplate` — the sum of all active `budget_template_lines` where `budget_type = 'fixed'`. This is now the single source of truth for fixed costs everywhere.
+
+- **Error 2 — Lifestyle spending showing budgeted amount:** Old code displayed the sum of lifestyle template line amounts as if it were actual spending. New code computes `actualSpend` by summing all expenses logged for the selected month from the `expenses` array in AppContext. Budget and actual spend are now always distinct values.
+
+- **Error 3 — Red bar when barely any money spent:** Direct consequence of Error 2. Now fixed: the lifestyle bar and ring reflect actual spend as a proportion of the lifestyle budget total.
+
+- **Error 4 — Income editor on Overview:** The "Edit income for [Month]" collapsible section removed entirely. Replaced with a single muted link at the bottom: "Update your income in Settings →" navigating to `/settings/money`.
+
+- **Error 5 — Partner income field:** The inline income editor exposed both user income fields, violating the privacy model. Removed with the editor.
+
+**Six zones built:**
+
+**Zone 1 — The Pulse:**
+- 120×120px animated SVG ring arc. Stroke draws from 0 to target over 0.8s ease-out on mount. Colour: sage (0–69%), amber (70–89%), terracotta (90–99%), red (100%+). Centre shows percentage + "of budget used".
+- Three stacked stats: Spent this month (with expense count), Lifestyle budget left (colour-coded), Projected surplus with daily rate calculation (hidden if < 3 days data or no income).
+- Hazel ambient line below the stats: single italic muted sentence. Static fallback logic in priority order: category over budget → projected overspend → healthy surplus → early month → default. Pro users get a live `window.api.budgetInsights` call with silent static fallback on failure.
+- "No budget set" empty ring + prompt if no envelope lines exist.
+- "Set income for full picture" prompt if income not set.
+
+**Zone 2 — Money flow:**
+- Three stacked bars (income baseline, fixed costs, lifestyle spending) all sized relative to income = 100%.
+- Fixed costs bar is always terracotta. Three chips below showing top fixed sections by amount (Housing, Subscriptions, Transport etc.) — tapping navigates to Budgets screen.
+- Lifestyle bar is colour-coded green/amber/red by spend percentage. A vertical ceiling indicator marks the lifestyle budget total. "£X of £Y lifestyle budget" subtext.
+- Surplus row: income − fixedCosts − actualSpend. Green if positive, red if negative.
+- "Income not set" empty state with link to Settings → Money.
+
+**Zone 3 — Budget status:**
+- One row per active lifestyle (envelope) template line. Sorted: overspent first, then by spend% descending, then alphabetical.
+- Each row: category name + progress bar + "£X of £Y". Overspent rows show "-£X over" in red with overflow indicator on the bar.
+- Bars colour at 0–69% sage, 70–89% amber, 90%+ red.
+- "See all X categories →" link if more than 6 lines. "Manage budgets →" link always shown.
+
+**Zone 4 — Upcoming this month:**
+- Only rendered when viewing the current month. Hidden entirely if no upcoming data.
+- Fixed lines with `day_of_month` set, split: upcoming (day > today), past (day ≤ today). Past bills collapsed to a single "X bills already out this month" row. Upcoming bills show name, "Due Nth", amount. Bills due within 3 days get amber "Due soon" indicator.
+- Goal contributions (active goals with `monthly_contribution`) shown with a Target icon. Past contributions show a check mark.
+- Tapping a bill navigates to `/money/budgets`. Tapping a goal navigates to `/money/goals`.
+
+**Zone 5 — Spending trend:**
+- Bar chart of last 6 months of actual spend. Only months with at least one expense are rendered. Hidden if fewer than 2 months of data.
+- Current month: terracotta. Previous months: warm grey `#ddd4c6`. Current month has a faded projection extension showing projected spend to end of month.
+- Dotted reference line at total lifestyle budget amount, labelled "Budget" at the right.
+- Hover tooltips: "[Month]: £X spent · £Y budgeted".
+- Free tier: current month is real, previous months shown as locked grey bars with a "See your spending history with Roost Pro" overlay.
+- "See full history →" navigates to `/money/spending`.
+
+**Zone 6 — Month on month comparison:**
+- Gated behind Pro (`canAccess("budget_insights")`). Free tier shows `ProTeaserCard`.
+- Visual bar comparison: two horizontal bars (current vs previous month) sized relative to each other. Not a text sentence.
+- Percentage change chip: "↑ X% more" or "↓ X% less".
+- Biggest category mover shown only if change is >20% and >£10 absolute.
+
+**What was removed:**
+- The "Edit income for [Month]" collapsible — gone entirely.
+- The partner income input field — gone.
+- The 2×2 "This month summary" stat card grid — replaced by Zone 1 and Zone 2.
+- The "Where it went" fixed/lifestyle section with the broken red bar — replaced by Zone 2.
+
+**Navigation connections:**
+- Zone 3: "Manage budgets →" → `/money/budgets`
+- Zone 4 bills: → `/money/budgets`
+- Zone 4 goals: → `/money/goals`
+- Zone 5: "See full history →" → `/money/spending`
+- Bottom: "Update your income in Settings →" → `/settings/money`
+
+**Scramble mode:** All amounts use `useScramble().fmt()` throughout. Scrambled mode shows "•••" for all currency values.
+
+**Loading states:** Zones load independently. Zone 1/2/3 wait on `isExpensesLoading || isTemplateLoading || isHouseholdIncomeLoading`. Zone 4 waits on `isTemplateLoading || isSavingsGoalsLoading`. Zone 5 has its own `useQuery` with a skeleton.
+
+**Verification:** `npx tsc --noEmit` → zero errors.
+
+---
+
+### Session 36 — 12 April 2026 — Budgets screen: health score, bill clash detection, amount comparison, income allocation bar
+
+Four display/intelligence features added to `Budgets.tsx`. No new hooks created. One migration for data layer.
+
+**Migration `0040_last_amount.sql`:**
+- `budget_template_lines`: adds `last_amount numeric(10,2)` and `amount_changed_at timestamptz`
+- `last_amount` stores the previous amount before the most recent edit (for month-on-month comparison)
+- `amount_changed_at` records when the change was made (comparison indicator shown for 60 days)
+
+**`useBudgetTemplate.ts` changes:**
+- `budgetTemplateLineSchema`: added `last_amount` and `amount_changed_at` fields so they flow through to the UI
+- `updateLine.mutationFn`: reads current cached amount via `queryClient.getQueryData` before saving; if amount has changed, captures it as `last_amount` and sets `amount_changed_at = new Date().toISOString()`
+
+**Feature 1 — Budget health score card (`Budgets.tsx`):**
+- `computeHealthScore()`: 4 factors × 25 pts — income coverage, goals funded, lifestyle coverage, rollover awareness
+- Ratings: 85+ Healthy, 65+ Good, 45+ Getting there, 25+ Needs attention, else Just starting
+- `staticHazelLine()`: static ambient sentence per score band (free tier fallback)
+- `BudgetHealthCard`: 5th summary card with rating text in semantic color, 4px progress bar, italic Hazel sentence below
+- Pro (`isNest`): calls `window.api.budgetInsights` IPC on mount; uses `res.data.summary` as the Hazel line
+
+**Feature 2 — Bill clash detection (`Budgets.tsx`):**
+- `detectBillClusters()`: finds fixed lines with `day_of_month` set, groups bills within a 3-day sliding window with combined total ≥ £200
+- Signature = sorted `${id}:${day}` joined by `|`; changes when dates change so dismissed clashes re-surface
+- `BillClashCard`: amber warning card between summary and budget table; dismissible via × button
+- Dismissed signatures persisted to localStorage key `roost-dismissed-clashes`
+
+**Feature 3 — Budget vs last month comparison (`Budgets.tsx`):**
+- `BudgetRow` read mode: shows ↑/↓ inline indicator left of amount when `last_amount` differs from current amount and `amount_changed_at` is within 60 days
+- Increase shown in amber (`#854f0b`), decrease in green (`#4d8057`)
+- Displays formatted delta (e.g. `↑ +£20.00`)
+
+**Feature 4 — Income allocation bar (`Budgets.tsx`):**
+- `ALLOCATION_CONFIG`: fixed ordered list of section groups with display labels and colors
+- `IncomeAllocationBar`: stacked horizontal bar (12px, fully rounded) divided by section group totals; unallocated remainder shown if >0.5%
+- Animation: `motion.div` with `scaleX` 0→1, staggered by 0.05s per segment, `transformOrigin: left`
+- Hover tooltip via React state + `position: fixed` (follows cursor)
+- Clicking bar segment or legend dot scrolls to `document.getElementById('budget-section-' + key)`
+- If income not set, shows muted prompt instead
+
+**Layout order:** header → summary cards (5) → income allocation bar → bill clash cards → budget table
+
+**Scroll targets:** each `BudgetSection` wrapped in `<div id="budget-section-{id}">` for allocation bar navigation
+
+**Verification:** `npx tsc --noEmit` → zero errors.
+
+**Pending action (user):** Run migration `0040_last_amount.sql` in the Supabase SQL editor, then regenerate types with `npm run gen:types`.
+
+---
+
+### Session 35 — 12 April 2026 — Five budget features: goal lines, DATE column, annual costs, rollover, ownership
+
+All five features implemented in one session. One migration covers all database changes. No existing UI was broken.
+
+**Migration `0039_goal_budget_link.sql`:**
+- `savings_goals`: adds `monthly_contribution numeric(10,2)`, `contribution_day integer default 1 check (1..31)`, `budget_line_id uuid references budget_template_lines(id) on delete set null`
+- `budget_template_lines`: adds `is_annual boolean not null default false`, `annual_amount numeric(10,2)`, `rollover_enabled boolean not null default false`, `ownership text not null default 'shared' check (...)`
+- New table `budget_rollover_history`: `id`, `home_id`, `template_line_id`, `month`, `base_amount`, `rollover_amount`, `effective_amount`, `created_at`; unique(template_line_id, month); full RLS + realtime
+
+**Feature 1 — Goals as budget lines (`useSavingsGoals.ts`):**
+- `addGoal` mutationFn: if `monthly_contribution > 0`, creates a `budget_template_lines` row (section_group='goals', budget_type='fixed') then links it back via `budget_line_id`
+- `updateGoal`: syncs budget line name/amount/day when goal fields change
+- `deleteGoal` + `completeGoal`: deactivate linked line before removing/completing goal
+- New `setGoalContribution(id, amount, day)` — creates or re-activates linked line
+- New `removeGoalContribution(id)` — deactivates line, clears monthly_contribution
+- Both exposed from `AppContext`
+
+**Feature 2 — DATE column for fixed sections (`Budgets.tsx`):**
+- `colTemplate` for fixed sections updated: `"1fr 60px 90px 44px"` (household) and `"1fr 60px 90px 90px 90px 44px"` (split) — 60px DATE slot between LINE ITEM and BUDGETED
+- `BudgetRow`: DATE cell rendered only for `type === "fixed"` rows; read mode shows ordinal day (1st, 14th etc.) or `—`; edit mode shows tappable pill; click opens inline input (1–31, commits on blur/Enter)
+- `handleDayCommit` + `editingDayId` state added to `Budgets()` component
+- New props threaded through `BudgetSection` → `BudgetRow`
+
+**Feature 3 — Annual costs spread monthly (`useBudgetTemplate.ts`, `Budgets.tsx`):**
+- `addLine` + `updateLine`: auto-compute `amount = round(annual_amount / 12, 2)` when `is_annual = true`
+- `annualTotal` useMemo exposed from hook
+- `BudgetRow` budgeted cell: shows `£X/yr` secondary line in muted text when `is_annual && annual_amount`
+
+**Feature 4 — Rollover for lifestyle budgets (`Budgets.tsx`):**
+- `useQuery("rollover-history", ...)` fetches `budget_rollover_history` for the selected month
+- `rolloverByLine` derived map (lineId → rollover_amount)
+- `useEffect` on month change: idempotent upsert — for each rollover-enabled envelope line, computes prev month's effective − actual spend and upserts `budget_rollover_history`
+- `BudgetRow` budgeted cell: `effectiveBudget = amount + rollover`; positive rollover shown as `+ £X from last month` in muted green, negative as `- £X from last month` in muted amber
+
+**Feature 5 — Shared vs personal flags (`useBudgetTemplate.ts`, `Budgets.tsx`):**
+- `updateLine`: auto-sets `member1_percentage` when ownership changes (member1→100, member2→0, shared→50 if not provided)
+- `BudgetRow` name cell: shows 20px `AvatarCircle` beside name for member1/member2 ownership
+- Edit mode: ownership pills (Shared / Me / Partner) animate in below split slider for envelope rows; `handleOwnershipChange` callback
+
+**Goals section in Budgets screen:**
+- `GOALS_SECTION` constant (type='fixed', not in `SECTIONS` array — not user-configurable)
+- `GoalsSection` component: renders goal-linked budget lines with a `MiniGoalRing` (16px SVG) for progress; DATE column; tapping a row navigates to `/money/goals`; "Manage goals →" footer link
+- Rendered after the SECTIONS.map() loop when `goalLines.length > 0`
+
+**Goals.tsx AddGoalSheet:**
+- New `DayPicker` component: horizontal scroll strip showing 1st–31st day buttons
+- New `daySuffix()` helper for ordinal formatting
+- `monthlyContribution` and `contributionDay` state added to AddGoalSheet
+- Monthly contribution input (£ prefix) + sublabel "This becomes a fixed line in your budget."
+- `DayPicker` animates in only when a contribution amount is entered
+- Both fields included in `addGoal.mutate()` payload
+
+**Verification:** `npx tsc --noEmit` → zero errors.
+
+**Pending action (user):** Run migration `0039_goal_budget_link.sql` in the Supabase SQL editor, then regenerate types with `npm run gen:types`.
+
+---
+
+### Session 33 — 12 April 2026 — Budgets screen: edit mode, section hierarchy, per-row split indicator
+
+Full refinement pass on `pages/money/Budgets.tsx`. No other screens or shared hooks modified beyond adding `tom_percentage` to the budget template schema.
+
+**Edit mode:**
+
+- New `editMode` boolean state (default false). "Edit" button in the page header (top right, beside month navigator and split toggle). In read mode: outlined button, warm dark text, 13px. In edit mode: filled terracotta (`#d4795e`), cream text, 13px. Toggling to edit mode shows an amber banner ("Editing your budget — changes save automatically", 11px muted) below the header using `AnimatePresence` fade.
+
+- `exitEditMode()` helper clears all editing state (amount, note, name, remove, context menu) when Done is tapped.
+
+- **Add buttons** hidden entirely in read mode (not rendered at all). In edit mode they animate in with a 50ms staggered delay per section index.
+
+- **Amounts** no longer render as buttons in read mode — plain `<span>`. Edit mode restores hover-underline + click-to-edit behaviour.
+
+- **Row name editing**: in edit mode each row name is a button. Clicking opens `InlineNameInput` (new component) — an inline input that saves on blur/Enter and calls `updateTemplateLine({ name })`.
+
+- **Context menu** suppressed in read mode (`onContextMenu` handler is `undefined` on the motion.div when not in edit mode). In edit mode, right-click works as before.
+
+**Section header visual hierarchy:**
+
+- Font size: 13px → 15px, weight 500.
+- Fixed sections: `border-left: 3px solid #c75146`, background `rgba(199,81,70,0.04)`.
+- Lifestyle sections: `border-left: 3px solid #534ab7`, background `rgba(83,74,183,0.04)`.
+- `borderRadius: 0` on header button (straight left edge matching the accent border).
+- Column header sub-row: added 4px extra top padding (`6px 8px 4px`).
+
+**Empty sections in read mode:** `BudgetSection` returns `null` when `!editMode && lines.length === 0`. Prevents Savings allocation and other empty sections appearing as broken stubs.
+
+**Per-row split indicator:**
+
+- `SplitBar` component: 36×4px, `borderRadius: 2`, overflow hidden flex row. Left = member 1's `avatar_color`, right = member 2's `avatar_color`. Width proportional to `member1_percentage`. `title` tooltip: "[User] X% · [Partner] Y%". Always rendered in both read and edit mode, in a new rightmost column (44px).
+
+- Grid column templates updated to include the 44px split bar column: `colTemplate(type, viewMode)` and `grandColTemplate(viewMode)` helper functions consolidate the template strings.
+
+**Edit mode split slider:**
+
+- `SplitSlider` component: appears below each row in edit mode via `AnimatePresence` height animation (0.2s). Layout: `[MeAvatar] [Me%] [range input] [Partner%] [PartnerAvatar]`. Range: 0–100, step: 5. Local state updates live; debounced 400ms save via `handleMePctCommit → updateTemplateLine({ member1_percentage })`. "Equal" label at 50, "X pays all" labels at 0/100.
+
+- `AvatarCircle` (20px) uses `getInitials(name)` and `avatar_color`.
+
+**Split mode column update:**
+
+- Me column now uses `line.amount * (member1_percentage / 100)`, partner = `amount - meAmount`. Section totals and grand total row follow the same calculation. No more hardcoded `/ 2` anywhere.
+
+**Grand total split bar:** Weighted average `(Σ amount × mePct/100) / totalBudgeted` drives the grand total `SplitBar`.
+
+**Row padding:** Read mode 10px top/bottom, edit mode 14px top/bottom (accommodates slider row). Envelope progress bar right-padding updated from 28px to 44px to match new column width.
+
+**Database:** Migration `0038_template_split.sql` adds `member1_percentage numeric(5,2) NOT NULL DEFAULT 50.00 CHECK (member1_percentage BETWEEN 0 AND 100)` to `budget_template_lines`. Must be run in Supabase SQL editor.
+
+**`useBudgetTemplate.ts`:** Added `member1_percentage: z.coerce.number().min(0).max(100).default(50)` to `budgetTemplateLineSchema`; added `member1_percentage?: number` to `UpdateTemplateLineData`.
+
+**Verification:** `npx tsc --noEmit` → zero errors.
+
+**Pending action (user):** Run migration `0038_template_split.sql` in the Supabase SQL editor, then regenerate types with `npm run gen:types`.
+
+---
+
+### Session 34 — 12 April 2026 — Remove all hardcoded names; genericise for App Store
+
+Critical audit and cleanup: the app is shipping to the App Store for any couple, so all hardcoded personal names ("Tom", "Beth") were removed from the entire codebase.
+
+**Audit results:**
+- No hardcoded names appeared in user-visible UI strings — `AppContext` already derived `currentUser`/`partnerName` dynamically.
+- Hardcoded names were present only in internal variable names, code comments, SQL migration files, and session log entries.
+
+**Changes made:**
+
+**Migration rewrite (`0038_template_split.sql`):** Column renamed from `tom_percentage` to `member1_percentage`. The migration had not yet been applied to Supabase. The old file was overwritten with the generic version. "member1" = the home creator; "member2" percentage is always `100 - member1_percentage`.
+
+**`useBudgetTemplate.ts`:** Renamed `tom_percentage` → `member1_percentage` in the Zod schema and `UpdateTemplateLineData` interface.
+
+**`Budgets.tsx`:** All internal tom/beth variable names renamed to me/partner:
+- `tomColor`/`bethColor` → `meColor`/`partnerColor`
+- `tomName`/`bethName` props → `meName`/`partnerName` props (consolidated with `currentUserName`/`partnerName`)
+- `tomPct`/`tomAmount`/`bethAmount` → `mePct`/`meAmount`/`partnerAmount`
+- `totalTomSplit`/`totalBethSplit` → `totalMeSplit`/`totalPartnerSplit`
+- `totalTomBudgeted`/`totalBethBudgeted` → `totalMeBudgeted`/`totalPartnerBudgeted`
+- `grandTomPct` → `grandMePct`
+- `handleTomPctCommit`/`onTomPctCommit` → `handleMePctCommit`/`onMePctCommit`
+- `line.tom_percentage` → `line.member1_percentage` (all references)
+- `BudgetSectionProps`: removed redundant `tomName`/`bethName`/`currentUserName` props, unified under `meName`/`partnerName`
+
+**`useMoneySettings.ts`:** Fixed comment `// Tom's % (0–100)` → `// member 1's % (0–100)`.
+
+**`Overview.tsx`:** Renamed local state `tomIncome`/`setTomIncome` → `myIncome`/`setMyIncome`. (The underlying DB column `tom_amount` is already in production and was not changed here.)
+
+**New hook `useMemberNames.ts`:** Created `src/renderer/src/app/hooks/useMemberNames.ts` exposing `{ me, partner, meInitials, partnerInitials, meColour, partnerColour, hasPartner }` for consistent name/colour access across the app.
+
+**`docs/NORTH_STAR.md`:** Added "No hardcoded names" guiding principle. Replaced all Tom/Beth example names with [User]/[Partner] in roadmap entries and session logs.
+
+**Pending action (user):** Run migration `0038_template_split.sql` in the Supabase SQL editor, then regenerate types with `npm run gen:types`.
+
+---
+
+### Session 32 — 11 April 2026 — Category system rebuild: template lines as single source of truth
+
+Foundational architectural change replacing the old category model (`home_custom_categories` table + `BUILT_IN_CATEGORIES` array + `BudgetCategories.tsx` settings page) with a new model where categories are derived directly from Lifestyle budget template lines.
+
+**Architecture:** `budget_template_lines` where `budget_type = 'envelope'` is now the only source of truth for categories. Creating a Lifestyle budget line automatically makes it a category. Fixed lines are never categories.
+
+**Files changed:**
+
+- **`lib/categories.ts`** — `Category.emoji` and `.color` made optional; added `id?: string`; added `deriveCategoryColour(name)` (stable hash → 5-colour palette).
+- **`components/CategoryIcon.tsx`** — Added `Tag` fallback when `category.emoji` is absent.
+- **`hooks/useBudgetTemplate.ts`** — Added `categories`, `getCategoryByName`, `hasCategories` derived from `envelopeLines`.
+- **`context/AppContext.tsx`** — `allCategories` now sourced from `budgetTemplateHook.categories`; added `categories`, `hasCategories`, `getCategoryByName` to context.
+- **`components/expenses/ExpenseQuickAddSheet.tsx`** — Pills from template lines; "Set up budget first" prompt when no lines; saves `null` (not `"Other"`) when uncategorised.
+- **`pages/money/Spending.tsx`** — Bars driven by `envelopeLines`; orphaned expenses → "Uncategorised" row; empty state for no lines; "Manage budget limits →" now links to `/money/budgets`.
+- **`pages/money/Overview.tsx`** — "Discretionary" → "Lifestyle spending" in stat card and split bar.
+- **`routes.tsx`** — Removed `BudgetCategories` import; route `/settings/budget-categories` redirects to `/money/budgets`.
+- **`hooks/useExpenses.ts`** — Replaced `home_custom_categories` query with `useBudgetTemplate().envelopeLines` for Hazel category grounding; Hazel fallback changed from `'Other'` to `undefined`.
+- **`pages/Pinboard.tsx`** — Replaced `home_custom_categories` query and `mergeCategories` with `useBudgetTemplate().categories`.
+- **`hooks/useBudget.ts`** — Removed `customCatsQuery`, `invalidateCustomCats`, `home_custom_categories` realtime subscription, `addCustomCategory` mutation, `deleteCustomCategory` mutation; `allCategories` stubbed to `[]`.
+- **`pages/settings/BudgetCategories.tsx`** — Deleted.
+- **`supabase/migrations/0037_deprecate_categories.sql`** — Adds deprecation comment to `home_custom_categories` table.
+- **`docs/NORTH_STAR.md`** — Added category system architecture note.
+
+**Verification:** `npx tsc --noEmit` → zero errors.
+
+---
+
+### Session 31 — 11 April 2026 — Terminology: "Envelope" → "Lifestyle" in all UI copy
+
+Terminology-only update. No logic, schema, hook, or type changes. The budget type previously labelled "Envelope" in the UI is now labelled "Lifestyle" everywhere the user can read it. The database value `'envelope'` and all internal code identifiers (`envelopeLines`, `totalEnvelopes`, `getEnvelopes`, `getRemainingInEnvelope`, etc.) are unchanged.
+
+**Files changed (UI copy only):**
+
+- **`pages/money/Budgets.tsx`** — `TypeBadge`: label `Envelope` → `Lifestyle`; badge colours updated from sage (`#e1f5ee`/`#085041`) to soft purple (`#f0eafa`/`#3c3489`). Empty state description: `Envelopes are allowances...` → `Lifestyle budgets are allowances...`.
+- **`pages/money/Spending.tsx`** — Sheet title `Set envelope for {category}` → `Set lifestyle budget for {category}`; button text `Set envelope` → `Set lifestyle budget`; inline labels `envelope` → `lifestyle budget`; `No envelope set` → `No lifestyle budget set`; `Set envelope →` → `Set lifestyle budget →`.
+- **`pages/settings/MoneySettings.tsx`** — Alert description: `Get alerted when an envelope reaches...` → `Get alerted when a lifestyle budget reaches...`.
+- **`docs/NORTH_STAR.md`** — Added UI terminology convention note documenting the `envelope` → Lifestyle mapping.
+
+**Verification:** `npx tsc --noEmit` → zero errors.
+
+---
+
+### Session 30 — 11 April 2026 — Money home screen: visual polish + RPC fallback
+
+Polish pass on `pages/Money.tsx` fixing rendering bugs and upgrading visual quality. No hooks, AppContext, or sub-screens were modified.
+
+**Bugs fixed:**
+
+- **RPC 404 error / "Something went wrong loading your summary"**: `get_monthly_summary` returns 404 because migrations 0032+0033 have not yet been applied to the live Supabase project. The RPC function with the new signature (`p_home_id`, `p_month`) does not exist yet. Fixed by catching `PGRST202`/404 in `useMonthlySummary.ts` — hook now returns `undefined` instead of throwing, suppressing the error toast entirely.
+
+- **Surplus showing £0.00 when income is set**: With the RPC unavailable the app was falling through to `summary === undefined` with no fallback, so the ring arc and stat rows all showed zeroes. Fixed by building a client-side `effectiveSummary` in `Money()` from already-loaded data: `clientTotalSpent` from `budgetCategories`, `clientSurplus = incomeAmount − totalBudgeted`, `clientPctSpent` = spend ÷ max(totalBudgeted, incomeAmount). When the RPC is later deployed, `summary` will populate and override the fallback automatically.
+
+- **React "Expected static flag was missing" error**: `useCurrencyFormat()` was called after an early `if (isLoading) return` inside `SummaryCard`, violating Rules of Hooks. Moved all hook calls to before the early return.
+
+**Visual upgrades:**
+
+- **Ring arc** — Doubled in size: `88px` container, `RING_R = 36`, `RING_STROKE = 8` (was 60px / 24 / 6). The ring is now the dominant visual anchor on screen. Green threshold colour updated to sage `#9db19f`.
+
+- **Stat row hierarchy** — Four distinct type scales instead of one uniform size:
+  - Income: `18px / font-weight 500` (anchor row)
+  - Remaining: `15px / 500` colour-coded green/amber/red by `remainingPct` thresholds
+  - Surplus: `14px / 500` with ↑/↓ arrow prefix
+  - Spent: `14px / 400 muted`
+
+- **Navigation card accents** — Each card has a small coloured circle accent in the trailing slot: blue (Overview), sage (Spending), amber (Budgets), terracotta (Goals). Budgets card subtitle rendered in terracotta when no budget is set up yet (`subtitleHighlight` flag).
+
+- **Spacing** — Container changed to `px-6 pt-5 pb-6`. Card internal padding tightened. `space-y-2` gap between nav cards. Spending bar height increased to `6px`.
+
+- **Error state** — Moved inside `SummaryCard` (via `hasError` / `onRetry` props) rather than a standalone full-width card. No longer disrupts the layout when the error is transient.
+
+**Schema change — `lib/schemas/money.ts`:** `fixed_costs` made `.optional().default(0)` for resilience when the new RPC version returns a different field set.
+
+**Pending action (user):** Run migrations 0032 and 0033 in the Supabase SQL editor to deploy the updated `get_monthly_summary` function. Until then, the client-side fallback is active and all numbers are derived from local data.
+
+**Verification:** `npx tsc --noEmit` → zero errors.
+
+---
+
+### Session 29 — 11 April 2026 — Money home screen: layout rebuild and information hierarchy
+
+Complete restructure of the Money home screen (`pages/Money.tsx`). No hooks, AppContext, or sub-screens were modified. Presentation and priority only.
+
+**Problem solved:** Navigation cards were buried at the bottom after three stacked empty-state sections. New users saw a ring, a balance card, and three large empty states before they could navigate anywhere. Empty states were competing for prominence with actual navigation.
+
+**New layout (top to bottom):**
+1. Page header — unchanged
+2. Ring arc summary card — tightened padding (`p-4`)
+3. Balance card — only rendered when `balance.amount > 0` (wrapped in `AnimatePresence`)
+4. Navigation cards — **moved to position 4**, always visible without scrolling
+5. Spending bars — hidden entirely when no expenses this month
+6. Upcoming bills strip — hidden entirely when no bills configured
+7. Savings goals — hidden entirely when no goals exist
+
+**Component changes:**
+
+- **`SectionLabel`** — Rebuilt to the spec: `10px`, `font-weight 500`, uppercase, `#6b6157`, `letter-spacing 0.05em`. Was `text-xl font-semibold` (large and heavy).
+
+- **`RingArc`** — Added `onLabelClick?: () => void` and `labelColor?: string` props. When `onLabelClick` is provided the center renders as a `<button>` rather than a `<div>`. The arc draw animation (0.6s ease-out) was already correct.
+
+- **`SummaryCard`** — Added `onSetIncomeClick` prop. When `!hasIncome`: ring label is `"Set income"` in terracotta (`#d4795e`), tappable → navigates to `/settings/money`. Sublabel hidden in no-income state (was showing "Set income" as sublabel below "–"). Hazel ambient line unchanged — already hidden when null.
+
+- **`BalanceCard`** — Completely rewritten. Old design showed a tall card even for the "You're even" state. New design: compact single-row (`px-4 py-2.5`), coloured dot (green if owed, amber if owing) + balance text + small outlined settle-up button. "You're even" state is entirely gone — caller guards with `hasNonZeroBalance`.
+
+- **`NavigationCards`** — Added `hasIncome` prop. Dynamic subtitles:
+  - Overview: `"£X income · £Y spent · £Z surplus"` when income+summary exist; falls back to `"Income, fixed costs, surplus"`
+  - Spending: `"Groceries £218 · 4 categories"` (top category + count) when expenses exist; falls back to `"Log and review your spending"`
+  - Budgets: unchanged logic (uses `summary.total_budgeted`)
+  - Goals: `"New sofa · 60% saved"` (nearest goal name + progress %) when goals exist; falls back to `"What are you saving toward?"`
+
+- **`SpendingBars`** — Added `onAddExpense` prop. Returns `null` when `catsWithSpend.length === 0` (empty state removed). Footer row with `"+ Add expense"` terracotta text link (right-aligned).
+
+- **`UpcomingBillsStrip`** — Returns `null` when `bills.length === 0`. Empty-state card removed entirely. Section label changed from "Upcoming Bills" to "Coming Up".
+
+- **`SavingsGoalsSummary`** — Returns `null` when `activeGoals.length === 0`. Empty-state card removed. "See all" link now navigates to `/money/goals`.
+
+- **`Money()` component** — Removed `IncomeSetupPrompt` and `SpendingAlertCard` from layout. Layout reordered per spec. Container changed from `space-y-5` to `flex flex-col gap-3` (12px gaps between sections). `max-w-2xl` instead of `max-w-6xl` for readable column width. `handleSetIncomeClick` navigates to `/settings/money`. FAB `z-index` bumped to `z-40`.
+
+**Empty home screen:** Shows only ring card (with "Set income" tap prompt) + four nav cards with setup subtitles. Zero empty-state sections.
+
+**Verification:** `npx tsc --noEmit` exits 0 — zero TypeScript errors.
+
+---
+
+### Session 28 — 11 April 2026 — Data layer: budget_type + unified Budgets model
+
+Data-layer-only session. No UI changes. Restructures the Money section's data model ahead of the unified Budgets screen build.
+
+**What changed:**
+
+- **`supabase/migrations/0032_budget_type.sql`** — Adds `budget_type text NOT NULL DEFAULT 'envelope' CHECK (IN ('fixed', 'envelope'))` and `day_of_month integer CHECK (BETWEEN 1 AND 31)` to the `budgets` table. Fixed = committed recurring cost; envelope = spending allowance. Run this in the Supabase SQL editor, then regenerate types.
+
+- **`supabase/migrations/0033_update_monthly_summary.sql`** — Replaces `get_monthly_summary` RPC. Fixed costs now read from `budgets WHERE budget_type = 'fixed'` instead of `recurring_bills`. New return fields: `envelopes_total`, `total_budgeted`, `actual_spend`, `pct_of_income_budgeted`. Projected spend formula now adds fixed costs to the daily-rate projection. Run this in the Supabase SQL editor.
+
+- **`lib/schemas/budgets.ts`** — Added `budget_type: z.enum(['fixed','envelope']).default('envelope')` and `day_of_month: z.number().int().min(1).max(31).nullable().optional()` to `budgetSchema` and `upsertBudgetSchema`. Exported new `BudgetType` type.
+
+- **`lib/schemas/money.ts`** — Updated `monthlySummarySchema` with new fields (`envelopes_total`, `total_budgeted`, `actual_spend`, `pct_of_income_budgeted`). Added a Zod `.transform()` to provide backward-compat aliases: `actual_spend → total_spent`, `envelopes_total → discretionary`. Existing UI code compiles and behaves correctly against both the old and new RPC versions without modification.
+
+- **`types/database.types.ts`** — Added `budget_type: string` and `day_of_month: number | null` to the `budgets` Row/Insert/Update types to match the new schema.
+
+- **`hooks/useBudget.ts`** — Added five new computed accessors derived from cached query data:
+  - `getFixedBudgets(month)` — fixed-type rows ordered by day_of_month then category
+  - `getEnvelopes(month)` — envelope-type rows ordered by category
+  - `getTotalFixed(month)` — sum of fixed budget amounts
+  - `getTotalEnvelopes(month)` — sum of envelope budget amounts
+  - `getRemainingInEnvelope(category, month)` — envelope amount minus category spend for the month
+  - `migrateRecurringBillsToBudgets` mutation — one-time background migration that reads `recurring_bills` and creates corresponding `budget_type = 'fixed'` rows for the current month; guards against double-run; no toasts (silent background task). `budget_type` and `day_of_month` are carried in the upsert, so carry-forward of these fields is automatic.
+  - Updated `summary` memo to filter `budgeted` rows by `budget_type = 'envelope'` only (the breakdown UI is envelope-only).
+
+- **`hooks/useMonthlySummary.ts`** — Replaced `recurring_bills` realtime subscription with `budgets`, since fixed costs now live in `budgets`.
+
+**Carry-forward note:** No explicit carry-forward function existed in the codebase. The `upsertBudget` mutation uses `{ onConflict: 'home_id,category,month' }` and now accepts `budget_type` and `day_of_month` in its input — any future carry-forward that copies rows across months will include the new columns automatically.
+
+**Verification:** `npx tsc --noEmit` exits 0 — zero TypeScript errors.
+
+**Next steps:** Run migrations 0032 and 0033 in the Supabase SQL editor. Regenerate types (`npx supabase gen types typescript --project-id kfpjfhzgtejhzqdurkuu > src/renderer/src/app/types/database.types.ts`). Build the unified Budgets screen UI.
+
+---
+
+### Session 27 — 11 April 2026 — Polish pass: identity, currency, balance card, edge cases
+
+Final polish session closing out the Money rebuild and structural changes from sessions 22–26. The goal: one considered product, not features added over time.
+
+**App identity audit — findings and fixes:**
+
+- **Dashboard.tsx** — 9 hardcoded `£` symbols replaced with `fmt()` from `useCurrencyFormat()`. The "March Budget" card title updated to `{currentMonthLabel} spending` (dynamic month name). "Budget Categories" card renamed to "Spending categories". "View budget" button now links to `/money`. Budget categories link now goes to `/money/spending`. Import added: `useCurrencyFormat`, `format` from `date-fns`.
+- **SettleUpModal.tsx** — 4 hardcoded `£` symbols replaced with `fmt()`. "Amount (£)" label simplified to "Amount". Import added: `useCurrencyFormat`.
+- **KeyboardShortcuts.tsx** — `G+E` description updated from "Go to Expenses" → "Go to Spending". `G+B` description updated from "Go to Budget" → "Go to Money". Navigation target for `G+B` updated from `/budget` to `/money` (skips the redirect).
+- The back navigation on all Money sub-screens already read "← Money" (via `MoneyBackLink` in `MoneyShared.tsx`). No changes needed.
+- Settings Money tab already prominent (3rd position) with Wallet icon. No changes needed.
+
+**Currency symbol consistency audit:**
+- All four Money screens (Money.tsx, Overview.tsx, Spending.tsx, BillsAndGoals.tsx) already use `fmt()` — done in sessions 22–24.
+- Dashboard and SettleUpModal were the two remaining surfaces. Both fixed this session.
+- MoneySettings.tsx income inputs already use dynamic symbol via `getCurrencySymbol()`. No change needed.
+
+**Balance card — final polish:**
+- Added `justSettled` detection in `BalanceCard`: `useRef` tracks previous amount; when `prev > 0 && balance.amount === 0`, triggers a 2-second celebration state.
+- Celebration: scale pulse on the outer `motion.div` (`[1, 1.025, 1]`), spring bounce on the checkmark icon (`[1, 1.3, 1]` with snappy easing), subtitle changes from "Nothing owed either way" → "Just settled up ✓".
+- Settle up button converted from `<button>` to `<motion.button>` with `whileTap={{ scale: 0.92 }}` and spring physics for satisfying tap feedback.
+
+**IncomeSetup edge cases:**
+- **Single-income households:** `tom_amount` and `partner_amount` now send `null` when the field is left empty (was sending `0`). `myAmount`/`partnerAmount` are typed `number | null`; the mutation receives the correct nullable values.
+- **Zero income:** Explicitly entered `0` is allowed (button enables, mutation fires). A gentle contextual note appears: *"With no income set, Roost will track spending without a surplus calculation."* — shown via `AnimatePresence` when `combined === 0 && !bothEmpty`.
+- **Large/small amounts:** No validation blocking. Intl formatting handles both gracefully.
+
+**PIN lock — edge case review (no code changes):**
+- Crash while locked: `roost-lock-state = 'true'` persists to `localStorage`. On relaunch, `LockContext` reads state synchronously — always locked on next boot if lock was active. ✓
+- Sleep with auto-lock = Immediately: macOS triggers window blur on sleep, which fires `app:blur` → `mainWindow.webContents.send('app:blur')`. ✓
+- Enable lock without completing PIN: `isEnabled` is only written to `true` inside `setupPIN()` which first verifies both entries match, then writes config. `isLocked()` has an explicit `!config.pinHash` guard. ✓ All verified correct — no code changes needed.
+
+**Verification:** `npx tsc --noEmit` exits 0. `npm run build` produces a signed `.app` successfully.
+
+**PIN architecture note for when app signing is complete:**
+The lock/unlock interface is biometric-ready. Touch ID activation path: (1) sign the app with a Developer ID certificate (Phase 5), (2) in `LockScreen.tsx` remove the `disabled` prop from the Touch ID button and call `window.TouchID.authenticate()` (or use `keytar`/`node-touchid` from the main process via IPC), (3) on success call `unlock()` from `useLock()`. No structural changes to `appLock.ts`, `LockContext`, or `LockScreen` needed — the architecture was designed for this from day one (Session 25).
+
+---
+
+### Session 27 — 11 April 2026 — Budgets screen complete rebuild (permanent template model)
+
+Complete ground-up rebuild of the Budgets screen (`/money/budgets`). The old monthly-setup model has been replaced by a permanent household budget template. Lines are set once and roll forward automatically; the month navigator overlays actual spend data on top.
+
+**Architecture change — permanent budget template:**
+- Previous model: budget lines stored per-month in the `budgets` table. Each month had to be set up independently.
+- New model: `budget_template_lines` table stores the household's permanent financial plan. Lines exist without a month date. When viewing any month, the page generates the view by overlaying that month's actual spend from the `expenses` table on top of the template.
+
+**Migration 0034_budget_template.sql:**
+- New table `budget_template_lines` with columns: `id`, `home_id`, `name`, `amount` (numeric 10,2 ≥ 0), `budget_type` ('fixed' | 'envelope'), `section_group`, `day_of_month`, `note`, `is_active`, `sort_order`, `created_at`, `updated_at`.
+- RLS: select/insert/update/delete all use `get_user_home_id()` guard.
+- `updated_at` trigger auto-fires on row change.
+- Added to `supabase_realtime` publication.
+- **Run in Supabase SQL editor before deploying.**
+
+**New hook — `useBudgetTemplate`** (`hooks/useBudgetTemplate.ts`):
+- Fetches all `is_active = true` template lines for the current home, ordered by section_group / sort_order / created_at.
+- Exposes: `templateLines`, `fixedLines`, `envelopeLines`, `linesBySection` (keyed by section_group), `addLine`, `updateLine`, `removeLine`, `migrate`, `totalFixed`, `totalEnvelopes`, `totalBudgeted`, `isLoading`.
+- `updateLine` uses optimistic updates for instant UI response on inline amount edits.
+- `removeLine` sets `is_active = false` — soft delete only, never hard deletes.
+- `migrate` mutation: if `templateLines` is empty and the home has existing `budgets` rows, migrates them into template lines once on first load (idempotent guard; uses category-name heuristics to assign `section_group`; logs to console).
+- Realtime subscription on `budget_template_lines`.
+
+**AppContext wiring:** Added `useBudgetTemplate` to `AppContext`. Exposes all hook return values as: `templateLines`, `fixedLines`, `envelopeLines`, `linesBySection`, `addTemplateLine`, `updateTemplateLine`, `removeTemplateLine`, `migrateTemplate`, `totalFixed`, `totalEnvelopes`, `totalBudgeted`, `isTemplateLoading`.
+
+**New Budgets page — `pages/money/Budgets.tsx` (complete rewrite):**
+
+Sections in order (fixed then envelope):
+1. Housing & bills (fixed)
+2. Subscriptions & leisure (fixed)
+3. Transport (fixed)
+4. Food & drink (envelope)
+5. Household (envelope)
+6. Personal (envelope)
+7. Savings allocation (envelope)
+
+Key features built:
+- **Page header:** MoneyBackLink + "Budgets" h1 (22px/500) + MoneyMonthNavigator + per-person segmented toggle (Household / [User] / [Partner]).
+- **Summary cards (4):** Combined income (from `getIncomeForMonth`), Total budgeted, Unallocated (green/amber/red with "Available for savings" / "Over-allocated" label), Spent so far (with % of budget subtitle).
+- **Collapsible sections:** Clicking a section header toggles it; AnimatePresence drives the height animation (0.2s). Collapsed sections show only name + type badge.
+- **Section type badges:** Fixed = `#faece7`/`#712b13`; Envelope = `#e1f5ee`/`#085041`.
+- **Column headers adapt per section type and view mode.** Fixed sections show [Line item][Budgeted]; Envelope sections show [Line item][Budgeted][Spent][Remaining]. Split mode shows [Line item][Budgeted][[User]][[Partner]] for all sections.
+- **Fixed rows:** Name + note dot + clickable amount (inline edit) + no progress bar.
+- **Envelope rows:** Name + note dot + clickable budgeted amount + spent + remaining (green/amber/red) + 3px progress bar coloured green/amber/red by threshold (>20% green, 0–20% amber, overspent red).
+- **Inline amount editing:** Click amount → cell becomes input with terracotta border, 1.02x scale. Enter/blur commits (calls `updateTemplateLine`). Escape cancels.
+- **Note dot:** 6px sage circle beside name when note exists. Hover shows tooltip. Not a button.
+- **Section totals:** Each expanded section shows a totals row (slightly darker bg, 11px).
+- **Grand total row:** Heavy top border, spans full width. Shows Total budgeted / Total spent / Total remaining in household mode; Total / [User] / [Partner] in split mode.
+- **Add row button:** Dashed-border button at bottom of each section. Opens `AddBudgetLineSheet`.
+- **AddBudgetLineSheet:** Bottom sheet pre-filled with section type/group. Name input + horizontal suggestions. £-prefixed amount input. Day-of-month picker (fixed only). Note input (120 char limit). Save button calls `addTemplateLine`. Slides up with `AnimatePresence`.
+- **Right-click context menu:** Appears at cursor, fades in (0.1s). Options: Edit notes (opens inline NoteEditor), Duplicate row (adds copy with " (copy)" suffix), Move to section (sub-menu with other sections), Remove row (triggers inline confirmation). Danger item styled red. Closes on outside click.
+- **Inline note editor:** Textarea appears below row name. Blur or Enter saves. Escape cancels.
+- **Inline remove confirmation:** "Remove [name]? This removes it from your budget permanently." with "Yes, remove" and "Cancel" links.
+- **Empty state (first-time setup):** If `templateLines.length === 0`: Wallet icon, "Set up your household budget" heading, body text, "Set up budget" button.
+- **Setup flow:** Clicking "Set up budget" shows a full-screen form with all sections and their preset suggestions at £0. User fills in applicable amounts. "Save budget" batch-creates all non-zero lines.
+- **Migration:** On mount, if `templateLines` is empty, `migrateTemplate.mutate()` runs once (ref-guarded) to migrate existing `budgets` rows silently.
+- **Spend calculation:** Expense categories matched to template line names case-insensitively. Spend per line = sum of `expenses.amount` where `expenses.category.toLowerCase() === line.name.toLowerCase()` for the selected month.
+- **Animation:** New rows highlight terracotta → transparent (0.5s). Section expand/collapse 0.2s. Context menu opacity only. Progress bars animate width on mount.
+
+**Verification:** `npx tsc --noEmit` exits 0 — zero TypeScript errors.
+
+---
+
+### Session 27 — 11 April 2026 — Settings → Money tab full rewrite + global money preferences
+
+Complete rewrite of the Settings → Money tab and implementation of several new fully-functional household financial preferences.
+
+**Migration:**
+- `supabase/migrations/0036_money_settings.sql` — adds `personal_income`, `income_visible_to_partner`, `income_set_at` to `home_members`; adds `default_expense_split`, `budget_carry_forward`, `scramble_mode`, `overspend_alert_threshold` to `homes`.
+- Run this migration in the Supabase SQL editor before use. Types updated manually to match.
+
+**New hooks:**
+- **`hooks/useMoneySettings.ts`** — Reads and mutates all money-related settings. Derives: `myIncome`, `myIncomeVisibleToPartner`, `incomeSetAt`, `partnerIncomeVisible`, `partnerIncome` (only non-null when both have consented), `combinedIncome`, `defaultSplit`, `budgetCarryForward`, `scrambleMode`, `overspendAlertThreshold`. Mutations: `setMyIncome`, `setIncomeVisibility`, `updateHomeSetting`, `toggleScrambleMode`.
+- **`hooks/useScramble.ts`** — `fmt(amount)` returns `"•••"` when scramble mode is ON, delegates to `useCurrencyFormat()` when OFF. Used throughout Money screens.
+
+**Global state additions (AppContext):**
+- `scrambleMode: boolean`, `toggleScrambleMode()`, `defaultExpenseSplit: number`, `budgetCarryForward: 'auto' | 'manual'`, `overspendAlertThreshold: number`
+
+**Settings → Money tab (4 sections):**
+1. **Your income** — Single input for current user only (not a combined input). Last-updated date. Inline "Saved ✓" confirmation (no toast). Share-with-partner toggle with consent status. Combined household income display (only when both consented).
+2. **Privacy & display** — Scramble mode (prominent row with terracotta toggle when ON + amber "ON" badge). Hide balances on Money home (localStorage, device-only).
+3. **Budget preferences** — Default split (slider with avatar pair + live percentage labels). Budget carry-forward segmented control (Automatic/Manual). Spending alerts pill selector (50%–90%).
+4. **Currency** — Unchanged.
+- Removed: "Manage budget categories" section.
+
+**Scramble mode (global):**
+- Toggle in Settings → Money tab syncs to `homes.scramble_mode` (real-time via `useHome` subscription).
+- `ScrambleBanner` in `AppShell.tsx` shows an amber pill banner on all `/money*` routes when scramble is ON. Tapping turns it off.
+- All amounts in `Money.tsx` (`SummaryCard`, `BalanceCard`, `NavigationCards`, `SpendingBars`, `UpcomingBillsStrip`, `SavingsGoalsSummary`) use `useScramble().fmt` instead of `useCurrencyFormat()`.
+
+**Hide balances on Money home:**
+- Toggle in Settings stores `roost-hide-balances` in localStorage.
+- `Money.tsx` reads this on mount and listens to storage events for cross-tab sync.
+- Ring shows "Tap / to reveal" when hidden. Tapping reveals amounts for 5 seconds then re-hides.
+- Stat rows show "—" when hidden.
+
+**Overspend alert threshold:**
+- Read from `AppContext.overspendAlertThreshold` (default 80).
+- `pctColor()` in `Money.tsx` and `getStatusColor()` / `getStatusTone()` in `MoneyShared.tsx` now accept a `threshold` param (default 80). Colour transitions adapt dynamically.
+- `SpendingBars` in `Money.tsx` uses the live threshold for bar colour.
+
+**Budget carry-forward:**
+- `Budgets.tsx` checks `budgetCarryForward` before auto-migrating. `auto`: silent carry-forward on new month. `manual`: empty state shows "Carry forward last month" button alongside "Set up budget".
+
+**Default expense split:**
+- `defaultExpenseSplit` from AppContext exposed to `ExpenseQuickAddSheet`. Split type initialised from preference (currently always "equal" since the custom split UI is Pro-only and requires manual entry — foundation is in place for future enhancement).
+
+**Verification:** `npx tsc --noEmit` exits 0 — zero TypeScript errors.
+
+---
+
+### Session 26 — 11 April 2026 — Income setup screen + onboarding tour updates
+
+Added the income onboarding screen that gates first entry into the dashboard, and updated the guided tour.
+
+**New app flow (new users):**
+1. Signup → home setup (existing)
+2. `/income-setup` — full-screen income entry screen
+3. Onboarding tour (updated)
+4. Dashboard
+
+**Existing users:** If `household_income` has no rows for their home and they haven't dismissed the screen, they are redirected to `/income-setup` once on next boot. After setting income or skipping, the screen never shows again.
+
+**What was built:**
+
+- **`pages/IncomeSetup.tsx`** (new) — Full-screen warm page, outside AppShell (no nav/topbar). Staggered entrance animation. Two currency-prefixed number inputs (your income + partner's income, where partner name is pulled from `home_members`). Live combined total display (animates on value change). Privacy toggle (keeps individual amounts private; stores intent in `notes` field). "Set up our finances →" CTA — calls `setIncome.mutate()` with `tom_amount`, `partner_amount`, `combined_amount`, then navigates to `/dashboard`. "I'll do this later" — sets `roost-income-setup-dismissed = 'true'` in localStorage, navigates to `/dashboard`. Currency symbol derived from `home.currency_symbol` via `Intl.NumberFormat.formatToParts`. Exports `INCOME_SETUP_DISMISSED_KEY` and `shouldShowIncomeSetup` utility.
+
+- **`routes.tsx`** — Added `{ path: "income-setup", Component: IncomeSetup }` as a direct child of `RootLayout` (same level as AppShell). Access to AppProvider/LockProvider but no AppShell UI.
+
+- **`components/AppShell.tsx`** — Added `useApp()` import and destructures `incomeRows`, `isHouseholdIncomeLoading`. Added `isHouseholdIncomeLoading` to the loading gate (prevents dashboard flash before redirect fires). After auth/home guards: if `incomeRows.length === 0 && !localStorage.getItem('roost-income-setup-dismissed')` → `<Navigate to="/income-setup" replace />`.
+
+- **`components/Onboarding.tsx`** — Rebuilt step list (still 12 steps, 0–11):
+  - Removed: "Organise your shopping" (step 5) and "Manage expenses easily" (step 7) — both were center-placement, no-target steps that added little value
+  - Updated: Step 5 (was "Expense tracking") → now "Money" with new copy: "Money is your household financial hub. Log what you spend, set budgets, track bills, and save toward goals — together." Route updated to `/money`.
+  - Added: Step 6 "Who's paid more?" — spotlights `[data-onboarding='money-balance-card']` on `/money`, explaining the balance card and Settle up.
+  - Added: Step 7 "Bills & Goals" — spotlights `[data-onboarding='money-bills-goals']` on `/money`, explaining recurring bills and the calendar.
+
+- **`pages/Money.tsx`** — Added `data-onboarding="money-balance-card"` wrapper div around `<BalanceCard>`. Added `data-onboarding="money-bills-goals"` to the Bills & Goals `motion.button` in `NavigationCards`.
+
+**Timing note:** `OnboardingContext` was not changed. The auto-start timer fires 800ms after `RootLayout` mounts. Since `Onboarding.tsx` (the overlay) only renders inside `AppShell`, and `/income-setup` is outside AppShell, the tour cannot display until the user navigates to `/dashboard`. This means the sequence is naturally enforced without any extra coordination.
+
+**Verification:** `npx tsc --noEmit` exits 0 — zero TypeScript errors.
+
+---
+
+### Session 25 — 11 April 2026 — PIN app lock (functional)
+
+Implemented the complete PIN app-lock system, designed from the start with Face ID as the future fallback unlock path.
+
+**Architecture principle:** The lock system is not PIN-specific. The lock/unlock flow is a single interface — PIN currently powers it, and biometric unlock will call the same `unlock()` path after a successful system biometric prompt. No structural changes needed when Touch ID ships.
+
+**What was built:**
+
+- **`lib/appLock.ts`** — Core lock module. Config stored in `roost-lock-config` (localStorage), lock state in `roost-lock-state`. PIN hashed with `crypto.subtle.digest('SHA-256')` + fixed salt `'roost-salt-v1'`. Never stores the raw PIN. Exports: `getConfig`, `updateConfig`, `isLocked`, `lock`, `setUnlocked`, `setupPIN`, `verifyPIN`, `clearPIN`, `autoLockDelayFromString`, `autoLockDelayToString`.
+
+- **`context/LockContext.tsx`** — React context wrapping the entire app. On mount: if lock is enabled and a PIN exists, starts locked (always locks on launch for security). Listens to `app:blur` / `app:focus` IPC events to start/cancel the auto-lock timer. Renders `<LockScreen>` as a fixed overlay (z-[200]) via `AnimatePresence` — app content stays mounted beneath it so React state and TanStack Query cache survive lock/unlock. Exports `useLock()` with `{ locked, lock, unlock, refreshLockEnabled }`.
+
+- **`components/security/LockScreen.tsx`** — Full-screen overlay (`fixed inset-0 z-[200] bg-background`). Warm cream background, Roost branding (Home icon in terracotta), 6-dot PIN display with scale animation on fill. Custom 3×4 keypad (same warm card style as ExpenseQuickAddSheet). Shake animation on wrong PIN (`x: [0, -10, 10, ...]`). 5 failed attempts → 10-second cooldown with countdown. "Use Touch ID" button present but disabled for future biometric path.
+
+- **`components/security/PINSetupFlow.tsx`** — Three-step modal (`z-[300]`, above LockScreen). Step 1: "Create your PIN" → Step 2: "Confirm your PIN" (mismatch shakes and returns to Step 1) → Step 3: success checkmark in terracotta, auto-closes after 1.5 s. Escape key cancels and calls `onCancel()` so the caller can revert the toggle. Calls `appLock.setupPIN(pin)` on Step 3.
+
+- **`pages/settings/Security.tsx`** (rewritten) — Fully wired:
+  - Toggle ON → opens `PINSetupFlow`
+  - Toggle OFF → reveals inline `InlinePINConfirm` component (6 dots + compact keypad, animates in/out) — correct PIN calls `clearPIN()` and closes; cancel dismisses
+  - "Change PIN" row (visible when enabled) → inline confirm of current PIN → on success opens `PINSetupFlow` again
+  - Auto-lock selector → calls `appLock.updateConfig({ autoLockDelay: ms })` with ms derived from the string value
+  - All state derives from `appLock.getConfig()` on mount; `refreshConfig()` re-reads after any mutation
+  - Removed the old "PIN coming soon" stub banner entirely
+
+- **`main/index.ts`** — Added `mainWindow.on('blur')` → `send('app:blur')` and `mainWindow.on('focus')` → `send('app:focus')`.
+
+- **`preload/index.ts`** — Exposed `onAppBlur`, `onAppFocus`, `removeAppWindowListeners` via `contextBridge`.
+
+- **`types/window.d.ts`** — Added type declarations for the three new IPC methods.
+
+- **`components/RootLayout.tsx`** — Wrapped the provider tree with `<LockProvider>` between `AppProvider` and `OnboardingProvider`.
+
+**Verification:** `npx tsc --noEmit` exits 0 — zero TypeScript errors.
+
+---
+
+### Session 24 — 11 April 2026 — Settings restructure: Money, Security + household currency
+
+Two structural sessions combined into one log entry.
+
+**Settings restructure (Session 23):**
+
+- **SettingsLayout** — Rewrote to a 9-tab horizontal nav (Profile, Household, Money, Security, Notifications, Hazel, Rooms, Account, Subscription) with `overflow-x-auto scrollbar-none` for scroll on smaller widths. Animated tab indicator uses `motion.div layoutId`.
+- **MoneySettings** (`pages/settings/MoneySettings.tsx`) — New settings section at `/settings/money`:
+  - *Income section* — Two currency-prefixed inputs for your income and partner's income, pulling from `useHouseholdIncome`. Live combined total. Privacy toggle stored in localStorage. Save button with 2-second inline "Income updated for Month Year" confirmation. "Last set Month Year" / "Not set yet" indicator.
+  - *Budget categories section* — Tappable row navigating to `/settings/budget-categories`. Shows active category count badge.
+  - *Currency section* — Select dropdown (GBP/USD/EUR/AUD/CAD/JPY/CHF). Calls `updateCurrencySymbol` on change; persisted to `homes.currency_symbol` via Supabase.
+- **Security** (`pages/settings/Security.tsx`) — New settings section at `/settings/security`:
+  - App lock toggle (localStorage `roost-app-lock`). When enabled, shows animated `PinComingSoonBanner`.
+  - Auto-lock select (Immediately/1m/5m/15m/Never), only visible when app lock enabled via `AnimatePresence`.
+  - Touch ID toggle — disabled, "Coming soon" badge, localStorage `roost-use-touch-id`.
+- **Routes** — Added `money` and `security` children under `/settings`.
+
+**Household currency (Session 24):**
+
+- **Migration `0031_currency_symbol.sql`** — `alter table homes add column if not exists currency_symbol text not null default 'GBP'`.
+- **`database.types.ts`** — Added `currency_symbol: string` to homes Row/Insert/Update.
+- **`lib/schemas/home.ts`** — Added `currency_symbol: z.string().optional().default('GBP')`.
+- **`hooks/useHome.ts`** — Added `useCurrencyFormat()` hook (uses `Intl.NumberFormat` with ISO 4217 codes, reads `home.currency_symbol`). Added `updateCurrencySymbol` mutation. Both exported.
+- **`lib/utils.ts`** — `formatCurrency` updated to accept optional `currency` param (defaults `'GBP'`); kept for non-hook callsites.
+- **`MoneyShared.tsx`** — Re-exports `useCurrencyFormat` for convenience.
+- **All Money screens updated** — `Money.tsx`, `Spending.tsx`, `Overview.tsx`, `BillsAndGoals.tsx` — all `formatCurrency(x)` calls replaced with `const fmt = useCurrencyFormat()` + `fmt(x)` in every sub-component that renders currency. `formatCurrency` import removed from each file.
+
+**Verification:** `npx tsc --noEmit` exits 0 — zero TypeScript errors.
+
+---
+
+### Session 22 — 11 April 2026 — Expenses consolidated into Money section
+
+Structural session: moved all expense-related functionality from the Expenses sidebar item into the Money section where it belongs conceptually. No data model or hook changes.
+
+**What changed:**
+
+- **BottomNav** — Removed the Expenses nav item and `Receipt` icon import. Nav now has 6 items: Dashboard, Shopping, Money, Chores, Calendar, Pinboard.
+- **Routes** — `/expenses` redirects to `/money/spending` via `<Navigate replace />`. Expenses page stays as a dead route temporarily.
+- **Money home screen** — Added a `BalanceCard` component between the ring arc summary card and the spending alert card. Shows: "You're even" (success green + checkmark), "[Partner] owes you £X" (success green + settle up button), or "You owe [Partner] £X" (warning amber + settle up button). Settle up button opens the existing `SettleUpModal` unchanged.
+- **Spending screen** — Added "All Expenses" section at the bottom with the full chronological expense list for the selected month (date DESC). Each row shows title, coloured category pill, payer MemberAvatar, amount, date, and recurring badge. Free-tier Pro gate row for expenses older than 30 days (same pattern as category detail). Settlement history collapsible below the expense list: "X settlements ▼" expands to show all settlements.
+- **Cross-links updated** — `/expenses` links in Budget.tsx, Dashboard.tsx, KeyboardShortcuts.tsx, useGlobalSearch.ts, and Onboarding.tsx all updated to `/money/spending`.
+- **Zero TypeScript errors** after all changes.
+
+### Session 21 — 11 April 2026 — Bills & Goals screen + ExpenseQuickAddSheet (Session 4 of N)
+
+Built the final two deliverables of the Money section rebuild: the Bills & Goals sub-screen and the new expense quick-add bottom sheet.
+
+**What was built:**
+
+- **BillsAndGoals screen** (`pages/money/BillsAndGoals.tsx`) — full-page screen at `/money/bills-and-goals`:
+  - Horizontal-scroll bill calendar strip for the next 30 days, highlighting the most imminent bill in terracotta, amber urgency dot for bills within 3 days
+  - Committed costs summary card ("X bills · £Y/month total" + % of income if income set)
+  - Full recurring bills list with hover-reveal edit/remove actions, inline removal confirmation, free-tier lock overlay beyond 5 bills, empty and loading states
+  - BillEditorSheet — slide-up bottom sheet for add/edit: name, £ amount, day-of-month horizontal picker (1–31), category input; handles PRO_REQUIRED by closing and delegating
+  - Savings goals list with 52px SVG progress rings, On track/Behind status pills, monthly-needed calculation, free-tier gate (1 goal on free), completed goals collapsed section
+  - AddGoalSheet — name, target amount, optional DatePicker, 6-colour swatch picker; handles PRO_REQUIRED by opening upgrade modal
+  - GoalDetailSheet — 96px animated ring, progress bar, add-savings inline input calling addToGoal, mark-complete confirmation, delete confirmation
+
+- **ExpenseQuickAddSheet** (`components/expenses/ExpenseQuickAddSheet.tsx`) — reusable bottom sheet:
+  - State 1 (amount entry): blinking cursor, custom 3×4 number pad with press animations; decimal and backspace handling
+  - State 2 (full details): smooth transition when description field focused; who-paid avatar buttons (current user + partner); Equal / Custom / Solo split selector (Custom gates to Pro via upgrade modal); "Edit amount" link back to pad
+  - Hazel category suggestion: 500ms debounce on description, auto-selects on Pro, highlights (dashed border) on free for manual confirmation
+  - Category pill scroll row with filled/outlined/suggested states using consistent colour hash
+  - Submit flow: validates amount > 0 and description present; brief green check animation on success; closes and calls onSuccess callback
+
+- **Routing** — `routes.tsx`: added `/money/bills-and-goals` → `BillsAndGoals`; `/money/bills` now redirects to `/money/bills-and-goals`; Money home nav card path updated to match.
+
+- **Money.tsx FAB** — terracotta `+` button fixed bottom-right, opens `ExpenseQuickAddSheet` from the home screen.
+
+- **Expenses page** — primary Add Expense button and empty-state CTA now open `ExpenseQuickAddSheet` instead of the legacy dialog. Old dialog still present (not removed per spec).
+
+**Verification:**
+- `npx tsc --noEmit` exits 0 — zero TypeScript errors.
+
+**Status:** Session 4 complete. Money section rebuild is done: home screen, Overview, Spending, Bills & Goals, and the new expense quick-add sheet are all built and routed. Ready for the polish session.
+
+---
+
+### Session 20 — 11 April 2026 — Money Overview + Spending screens (Session 3 of N)
+
+Built the first two Money sub-screens: **Overview** (`/money/overview`) and **Spending** (`/money/spending`). Per the session rules, this was UI-only: no changes to `Money.tsx`, the money hooks, or `AppContext` wiring.
+
+**What was built:**
+
+- **Shared Money screen primitives** — added `pages/money/MoneyShared.tsx` with a reusable warm Money header, gated month navigator, shared month persistence (`?month=YYYY-MM` + localStorage fallback), stat cards, progress bars, and shared financial status colour helpers.
+- **Overview screen** — added `pages/money/Overview.tsx` with:
+  - back link and gated month navigation synced to the shared Money month state
+  - 2×2 summary card grid for income, spend, fixed costs, and discretionary spend
+  - “Where it went” fixed vs discretionary split card with surplus callout
+  - pure CSS/SVG spending trend chart with free-tier teaser treatment and live monthly budget-limit markers
+  - Pro-gated month-on-month comparison card
+  - inline monthly income editor with separate partner fields and combined total
+- **Spending screen** — added `pages/money/Spending.tsx` with:
+  - SVG donut chart by category using the same stable category colour hash as the Money home screen
+  - ambient Hazel-style insight line
+  - full category list versus limits with green / amber / red threshold fills
+  - animated single-expand category rows using `AnimatePresence`
+  - inline expense entries with avatar chips, dates, free-tier 30-day gating, and “X more” expansion
+  - bottom link to the existing budget limit management page
+- **Routing update** — replaced the stub `/money/overview` and `/money/spending` routes in `routes.tsx` with the new real screens.
+
+**Verification:**
+- `npx tsc --noEmit --pretty false` completed cleanly after the new routes and screens were added.
+
+**Status:** Session 3 complete. Money Overview and Spending screens are built and routed. Ready for Session 4.
+
+---
+
+### Session 19 — 11 April 2026 — Money home screen UI (Session 2 of N)
+
+Built the complete Money home screen (`src/renderer/src/app/pages/Money.tsx`). Data layer only in this session — no modifications to existing pages, hooks, or context.
+
+**What was built:**
+
+- **Money page** (`pages/Money.tsx`) — 950-line single-file component containing all six sections and all sub-components as internal functions, matching the existing page pattern exactly.
+
+**Section 1 — Ring arc summary card:**
+- Animated SVG donut ring (60×60px) showing % of income spent, coloured green/amber/red based on thresholds (70/90%)
+- Four animated stat rows (AnimatedNumber counts up on mount over 0.4s): Income, Spent, Remaining, Est. surplus. Remaining and surplus are colour-coded to financial status.
+- Hazel insight line — italic muted text driven by static pct_spent logic (Pro IPC hook deferred to a future session)
+- Skeleton loading state while summary/income queries are in flight
+
+**Section 2 — Spending alert (conditional):**
+- Only renders if any budget category is ≥ 80% of its limit
+- Shows worst offender with pct, amount, and days left in month; "and N others" if multiple
+
+**Section 3 — Upcoming bills strip:**
+- Horizontal-scroll row of pill cards for the next 30 days via `getBillsForDateRange`
+- Most imminent card highlighted in primary/terracotta; others use card surface
+- "Today" / "Tomorrow" / date labels; "No bills added yet" empty state with + button
+- Max 6 cards; staggered entrance animation
+
+**Section 4 — Savings goals summary:**
+- Mini ring (28px) per active goal showing current/target %, coloured by goal's `colour` field
+- Status pill: "On track" (green) or "Behind" (amber) driven by monthly surplus ÷ goals vs monthly needed
+- Free-tier users with ≥ 1 goal see a soft "Add more goals with Roost Nest →" CTA that opens the upgrade modal
+- "Start saving together" empty state; "See all X goals →" overflow link; max 2 shown inline
+
+**Section 5 — Spending bars:**
+- Horizontal bar per active budget category, spend vs limit
+- Bar colour: green < 70%, amber 70-90%, red > 90% of limit; terracotta if no limit set
+- Category dot uses a stable hash of the category name → app palette colour
+- "No spending logged yet" empty state; "X more categories →" overflow link; max 4 bars
+
+**Section 6 — Navigation cards:**
+- Three tappable cards: Overview, Spending, Bills & Goals
+- Spending card subtitle shows top category name + amount if data exists
+- Bills card subtitle shows next bill name + days until
+
+**Income setup prompt:**
+- Full-width warm card shown above Section 1 if `incomeRows.length === 0`
+- £ prefixed input with Save button; calls `setIncome.mutate()` on the current month
+- Disappears via `AnimatePresence` once any income is saved
+
+**Routing and navigation:**
+- Added `/money` route → `Money` component in `routes.tsx`
+- `/budget` redirected to `/money` for backwards compatibility (Navigate component)
+- Stub routes for `/money/overview`, `/money/spending`, `/money/bills` pointing back to Money (sub-screens in future sessions)
+- `BottomNav` updated: "Budget" (PiggyBank) → "Money" (Wallet icon, `/money` path)
+
+**Verification:**
+- `npm run typecheck` → zero errors
+
+**Status:** Money home screen UI complete. Ready for Session 3 (Money sub-screens: Overview, Spending, Bills & Goals).
+
+---
+
+### Session 21 — 11 April 2026 — Spending screen polish + Goals screen (full build)
+
+Two things shipped in this session: Spending screen gains a FAB and envelope awareness; Goals gets its own full screen.
+
+**Spending screen — `pages/money/Spending.tsx`:**
+- Added floating action button (terracotta circle, `fixed bottom-24 right-5`) — opens `ExpenseQuickAddSheet`
+- FAB pre-selects `expandedCategory` as `defaultCategory` — if you're looking at "Eating Out" and tap "+", the sheet opens on Eating Out
+- Category bar label updated: `hasLimit` → "£X of £Y envelope" (was: "£Y limit"); `!hasLimit` → "No envelope set"
+- "Set envelope →" text link appears below each category card with no envelope set
+- Tapping it opens `SetEnvelopeSheet` — an inline bottom sheet with amount input that calls `supabase.from('budgets').upsert(...)` with `budget_type: 'envelope'` for the selected month
+- All expenses log section was already present — confirmed working
+- `translateError` used for error toast on envelope upsert
+
+**Goals screen — `pages/money/Goals.tsx` (full build):**
+- Replaces the stub created in Session 20
+- Uses `useApp()` for all goals data and `summary.surplus`
+- **Contribution summary card**: if any active goal has a target date, shows "To hit your goals you need to save £X/month. Your current surplus is £Y." — coloured green/amber/red
+- **GoalCard**: 64×64 SVG ring chart, goal name, saved/target amounts, "by Month YYYY" target, monthly needed, status pill ("On track" / "Behind" / "No deadline")
+- **GoalDetailSheet**: 96×96 animated SVG ring, add savings inline, mark complete, remove with confirm
+- **AddGoalSheet**: name, target amount, date picker, colour picker — ported and cleaned from BillsAndGoals.tsx
+- **Pro gating**: free tier shows 1 active goal + soft gate card below; Pro shows all
+- **CompletedGoalsSection**: collapsible, shows completed goals with check icon, final amount, completion date, duration (via `date-fns formatDuration`)
+- **Empty state**: warm, centred, PiggyBank icon, "Add your first goal" CTA
+- `BillsAndGoals.tsx` remains as dead code (not deleted — clean up in polish session)
+
+**Routing:** `/money/bills-and-goals` → redirects to `/money/budgets` (confirmed from Session 20)
+
+**Money section restructure: complete.** Overview, Spending, Budgets, Goals all have standalone screens. BillsAndGoals.tsx is dead code.
+
+**Verification:**
+- `npm run typecheck` → zero errors
+
+**Status:** Money section restructure complete. Ready for iOS sessions.
+
+---
+
+### Session 20 — 11 April 2026 — Budgets UI: new screen wired into Money home
+
+Built the `/money/budgets` screen and wired it into the app. Replaces the old "Bills & Goals" navigation entry with two separate cards: "Budgets" and "Goals".
+
+**Data layer changes (sessions 18+19 foundations applied here):**
+- `supabase/migrations/0032_budget_type.sql` — adds `budget_type` ('fixed'|'envelope') and `day_of_month` columns to `budgets`
+- `supabase/migrations/0033_update_monthly_summary.sql` — `get_monthly_summary` now reads fixed costs from `budgets WHERE budget_type='fixed'` (not `recurring_bills`); returns `envelopes_total`, `total_budgeted`, `actual_spend`, `pct_of_income_budgeted`
+- `lib/schemas/money.ts` — `monthlySummarySchema` gains new fields + backward-compat `.transform()` mapping `actual_spend→total_spent` and `envelopes_total→discretionary` so existing UI compiles unchanged
+- `lib/schemas/budgets.ts` — `budgetSchema` and `upsertBudgetSchema` updated with `budget_type` and `day_of_month`
+- `database.types.ts` — `budgets.Row/Insert/Update` updated with new columns
+- `useBudget` — added `getFixedBudgets`, `getEnvelopes`, `getTotalFixed`, `getTotalEnvelopes`, `getRemainingInEnvelope`, `batchUpsertBudgets` (quiet batch upsert for carry-forward/preset), `migrateRecurringBillsToBudgets`
+- `useMonthlySummary` — realtime subscription switched from `recurring_bills` → `budgets`
+
+**New screen — `pages/money/Budgets.tsx`:**
+- Three view states: budget set (main view), carry-forward prompt (prev month exists, no current), preset template (fresh setup)
+- Fixed Costs section: ordered by day_of_month, shows ordinal day (1st, 2nd…), color dot, amount, % of income, hover-to-delete
+- Envelopes section: inline progress bars, "£X of £Y", unallocated amount shown
+- `AddBudgetSheet`: fixed or envelope type, quick preset chips, day-of-month picker (fixed only)
+- `EnvelopeDetailSheet`: SVG ring chart (manual, no library), expense list, inline amount edit, delete with confirm
+- `DayOfMonthPicker`: 31-button scrollable strip
+- `CarryForwardPrompt`: carry forward or set up fresh
+- `PresetTemplate`: UK household preset categories (Housing & Bills, Subscriptions, Food, Transport, Household, Personal, Savings), sticky save button, partner name interpolation
+
+**Routing:**
+- `/money/bills-and-goals` → redirects to `/money/budgets`
+- `/money/budgets` → `Budgets` component
+- `/money/goals` → `Goals` stub (full build in Session C)
+
+**Money home NavigationCards:**
+- Replaced "Bills & Goals" card with "Budgets" card (`CalendarDays` icon, shows `${fmt(totalBudgeted)} planned · ${fmt(unallocated)} unallocated` or "Set up your {month} budget")
+- Added "Goals" card (`PiggyBank` icon, shows active goal count + nearest goal name)
+- `data-onboarding="money-bills-goals"` preserved on Budgets card for onboarding compatibility
+
+**Verification:**
+- `npm run typecheck` → zero errors
+
+**Status:** Budgets screen complete. Goals stub live. Ready for Session C — Goals full build.
+
+---
+
+### Session 18 — 11 April 2026 — Money section rebuild: backend and data layer (Session 1 of N)
+
+Built the complete TypeScript/React data layer for the new Money section redesign. No UI changes — this session is backend and data layer only.
+
+**Migrations (local record files created — already applied in Supabase):**
+- `0027_household_income.sql` — `household_income` table with RLS, unique constraint on `(home_id, month)`, `updated_at` trigger
+- `0028_savings_goals.sql` — `savings_goals` table with RLS, `updated_at` trigger, free-tier limit trigger (`check_savings_goals_limit`: max 1 goal on free tier, raises `upgrade_required`)
+- `0029_recurring_bills.sql` — `recurring_bills` table with RLS, `updated_at` trigger, free-tier limit trigger (`check_recurring_bills_limit`: max 3 bills on free tier, raises `upgrade_required`)
+- `0030_money_functions.sql` — `get_monthly_summary` RPC (income, fixed_costs, discretionary, total_spent, surplus, projected_total, pct_spent) + category normalisation triggers on `expenses`
+
+Note: local 0026 was already taken by `generate_lifetime_promo_codes`, so money migrations are 0027–0030.
+
+**Zod schemas — `src/renderer/src/app/lib/schemas/money.ts`:**
+- `householdIncomeSchema` + `createHouseholdIncomeSchema` + `HouseholdIncome` / `CreateHouseholdIncome` types
+- `savingsGoalSchema` + `createSavingsGoalSchema` + `updateSavingsGoalSchema` + types
+- `recurringBillSchema` + `createRecurringBillSchema` + `updateRecurringBillSchema` + types
+- `monthlySummarySchema` + `MonthlySummary` type
+- `ProRequiredError` interface (typed error for upgrade prompts)
+
+**Hooks created:**
+- `useHouseholdIncome` — fetches all income rows, `getIncomeForMonth(date)` derived helper, `setIncome` upsert mutation with optimistic update + rollback, Realtime subscription
+- `useSavingsGoals` — full CRUD (`addGoal`, `updateGoal`, `deleteGoal`, `completeGoal`, `addToGoal`), optimistic updates throughout, `upgrade_required` DB error maps to typed `{ code: 'PRO_REQUIRED', feature: 'savings_goals' }`, `activeGoals`/`completedGoals` derived arrays, Realtime subscription
+- `useRecurringBills` — fetches active bills ordered by `day_of_month`, `addBill`/`updateBill`/`deactivateBill` mutations (never hard-deletes), `upgrade_required` maps to typed error, `getBillsForDateRange(start, end)` pure function returning `BillOccurrence[]` with `next_date` + `days_until` for the bill calendar strip, Realtime subscription
+- `useMonthlySummary` — calls `get_monthly_summary` RPC, parses through `monthlySummarySchema`, `selectedMonth` state (defaults to current month), Realtime subscriptions on `expenses`/`household_income`/`recurring_bills` to auto-invalidate the summary
+
+**AppContext wiring:**
+All four hooks wired into `AppProvider` and exposed through `AppContextType`. All return values from each hook are available via `useApp()`. No existing hooks or pages modified.
+
+**Verification:**
+- `npm run typecheck` → zero errors
+
+**Status:** Backend complete. Ready for Session 2 — Money home screen UI.
+
+---
 
 ### Session 17 — 29 March 2026
 Shipped a focused premium polish cycle across Roost’s highest-impact surfaces, with special attention on Shopping, Chores, shared controls, and interaction quality. This session also prepared the app for the next GitHub draft-release pipeline run.

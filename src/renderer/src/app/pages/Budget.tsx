@@ -840,7 +840,7 @@ export function Budget() {
                 icon={Receipt}
                 title="No spending yet"
                 description="Add expenses and they’ll show up here, grouped by category."
-                action={{ label: "Go to Expenses", onClick: () => navigate("/expenses") }}
+                action={{ label: "Go to Expenses", onClick: () => navigate("/money/spending") }}
               />
             </CardContent>
           </Card>
@@ -1025,7 +1025,7 @@ export function Budget() {
                               </div>
                             )}
 
-                            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2" onClick={() => navigate(`/expenses?category=${encodeURIComponent(row.category.name)}`)}>
+                            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground -ml-2" onClick={() => navigate(`/money/spending`)}>
                               View all {row.category.name} expenses
                               <ArrowRight className="w-3.5 h-3.5" />
                             </Button>

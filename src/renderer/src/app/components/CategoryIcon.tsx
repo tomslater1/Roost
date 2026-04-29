@@ -47,6 +47,7 @@ export function CategoryIcon({ category, className = "w-4 h-4" }: Props) {
     const Icon = ICON_MAP[category.emoji];
     return <Icon className={className} />;
   }
-  // 3. Emoji character fallback
+  // 3. Emoji character fallback (or generic tag icon when emoji is absent)
+  if (!category.emoji) return <Tag className={className} />;
   return <span className="text-sm leading-none select-none">{category.emoji}</span>;
 }

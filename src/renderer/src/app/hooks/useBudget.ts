@@ -21,23 +21,18 @@ import { useHome } from './useHome'
 import { useRealtime } from './useRealtime'
 import {
   budgetSchema,
-  customCategorySchema,
   type Budget,
-  type CustomCategory,
+  type BudgetType,
   type UpsertBudget,
-  type CreateCustomCategory,
 } from '@/lib/schemas/budgets'
 import {
-  mergeCategories,
   getCategoryMeta,
   type Category,
 } from '@/lib/categories'
-import { normalizeInput } from '@/lib/normalizeInput'
 import type { ExpenseWithSplits } from '@/lib/schemas/expenses'
 import { useSubscription } from './useSubscription'
 
 const BUDGETS_KEY = 'budgets'
-const CUSTOM_CATS_KEY = 'custom-categories'
 
 export interface CategoryBudgetRow {
   category: Category
@@ -97,38 +92,19 @@ export function useBudget({ expenses }: { expenses: ExpenseWithSplits[] }) {
     },
   })
 
-  const customCatsQuery = useQuery({
-    queryKey: [CUSTOM_CATS_KEY, home?.id],
-    enabled: !!home?.id,
-    queryFn: async (): Promise<CustomCategory[]> => {
-      const { data, error } = await supabase
-        .from('home_custom_categories')
-        .select('*')
-        .eq('home_id', home!.id)
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      return z.array(customCategorySchema).parse(data)
-    },
-  })
-
   const invalidateBudgets = useCallback(
     () => queryClient.invalidateQueries({ queryKey: [BUDGETS_KEY, home?.id] }),
     [queryClient, home?.id]
   )
-  const invalidateCustomCats = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: [CUSTOM_CATS_KEY, home?.id] }),
-    [queryClient, home?.id]
-  )
 
   useRealtime({ table: 'budgets', homeId: home?.id, onUpdate: invalidateBudgets })
-  useRealtime({ table: 'home_custom_categories', homeId: home?.id, onUpdate: invalidateCustomCats })
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
-  const allCategories = useMemo(
-    () => mergeCategories(customCatsQuery.data ?? []),
-    [customCatsQuery.data]
-  )
+  // allCategories is kept as an empty stub — the category system now lives in
+  // budget_template_lines (via useBudgetTemplate). Budget.tsx which consumed this
+  // is effectively dead code (route redirects to /money).
+  const allCategories: Category[] = []
 
   const summary = useMemo((): BudgetSummary | null => {
     if (!budgetsQuery.data) return null
@@ -149,8 +125,11 @@ export function useBudget({ expenses }: { expenses: ExpenseWithSplits[] }) {
       spendByCategory[key] = (spendByCategory[key] ?? 0) + Number(e.amount)
     }
 
-    // Budget limits for this month
-    const budgetsForMonth = budgetsQuery.data.filter((b) => b.month === monthKey)
+    // Budget limits for this month (envelope type only — these are the category
+    // spending allowances shown in the budget breakdown UI)
+    const budgetsForMonth = budgetsQuery.data.filter(
+      (b) => b.month === monthKey && b.budget_type === 'envelope'
+    )
     const limitByCategory: Record<string, { amount: number; id: string }> = {}
     for (const b of budgetsForMonth) {
       limitByCategory[b.category] = { amount: Number(b.amount), id: b.id }
@@ -213,6 +192,82 @@ export function useBudget({ expenses }: { expenses: ExpenseWithSplits[] }) {
     return { budgeted, unbudgeted, totalBudget, totalSpend, totalPct }
   }, [budgetsQuery.data, allCategories, expenses, selectedMonth, monthKey])
 
+  // ── Typed accessors by budget_type ────────────────────────────────────────
+
+  /** All fixed-type budgets for the given month, ordered by day_of_month then category. */
+  const getFixedBudgets = useCallback(
+    (month: Date): Budget[] => {
+      if (!budgetsQuery.data) return []
+      const key = format(startOfMonth(month), 'yyyy-MM-dd')
+      return budgetsQuery.data
+        .filter((b) => b.budget_type === 'fixed' && b.month === key)
+        .sort((a, b) => {
+          const dayA = a.day_of_month ?? 32
+          const dayB = b.day_of_month ?? 32
+          if (dayA !== dayB) return dayA - dayB
+          return a.category.localeCompare(b.category)
+        })
+    },
+    [budgetsQuery.data]
+  )
+
+  /** All envelope-type budgets for the given month, ordered by category name. */
+  const getEnvelopes = useCallback(
+    (month: Date): Budget[] => {
+      if (!budgetsQuery.data) return []
+      const key = format(startOfMonth(month), 'yyyy-MM-dd')
+      return budgetsQuery.data
+        .filter((b) => b.budget_type === 'envelope' && b.month === key)
+        .sort((a, b) => a.category.localeCompare(b.category))
+    },
+    [budgetsQuery.data]
+  )
+
+  /** Sum of all fixed budget amounts for the given month. */
+  const getTotalFixed = useCallback(
+    (month: Date): number =>
+      getFixedBudgets(month).reduce((sum, b) => sum + Number(b.amount), 0),
+    [getFixedBudgets]
+  )
+
+  /** Sum of all envelope budget amounts for the given month. */
+  const getTotalEnvelopes = useCallback(
+    (month: Date): number =>
+      getEnvelopes(month).reduce((sum, b) => sum + Number(b.amount), 0),
+    [getEnvelopes]
+  )
+
+  /**
+   * Envelope budget amount minus expenses in that category for the given month.
+   * Returns the full envelope amount if no expenses exist yet.
+   */
+  const getRemainingInEnvelope = useCallback(
+    (category: string, month: Date): number => {
+      if (!budgetsQuery.data) return 0
+      const key = format(startOfMonth(month), 'yyyy-MM-dd')
+      const budget = budgetsQuery.data.find(
+        (b) => b.budget_type === 'envelope' && b.category === category && b.month === key
+      )
+      if (!budget) return 0
+
+      const monthStart = startOfMonth(month)
+      const monthEnd = endOfMonth(month)
+      const categorySpend = expenses
+        .filter((e) => {
+          try {
+            const d = parseISO(e.date)
+            return isWithinInterval(d, { start: monthStart, end: monthEnd }) && e.category === category
+          } catch {
+            return false
+          }
+        })
+        .reduce((sum, e) => sum + Number(e.amount), 0)
+
+      return Number(budget.amount) - categorySpend
+    },
+    [budgetsQuery.data, expenses]
+  )
+
   // ── Mutations ─────────────────────────────────────────────────────────────
 
   const upsertBudget = useMutation({
@@ -258,49 +313,88 @@ export function useBudget({ expenses }: { expenses: ExpenseWithSplits[] }) {
     onSettled: invalidateBudgets,
   })
 
-  const addCustomCategory = useMutation({
-    mutationFn: async (data: CreateCustomCategory) => {
-      const { text: name } = await normalizeInput(data.name, 'budget').catch(() => ({ text: data.name }))
+  /**
+   * Quiet batch upsert — no toast per row, no activity log.
+   * Used for carry-forward, preset template setup, and one-off migrations.
+   */
+  const batchUpsertBudgets = useMutation({
+    mutationFn: async (rows: UpsertBudget[]) => {
+      if (!home?.id || rows.length === 0) return
+      const inserts = rows.map((r) => ({ ...r, home_id: home!.id }))
       const { error } = await supabase
-        .from('home_custom_categories')
-        .insert({ ...data, name, home_id: home!.id })
+        .from('budgets')
+        .upsert(inserts, { onConflict: 'home_id,category,month' })
       if (error) throw error
     },
-    onSuccess: (_data, vars) => toast.success(`"${vars.name}" added as a category`),
     onError: (err) => toast.error(translateError(err)),
-    onSettled: invalidateCustomCats,
+    onSettled: invalidateBudgets,
   })
 
-  const deleteCustomCategory = useMutation({
-    onMutate: async ({ id }: { id: string }) => {
-      await queryClient.cancelQueries({ queryKey: [CUSTOM_CATS_KEY, home?.id] })
-      const previous = queryClient.getQueryData<CustomCategory[]>([CUSTOM_CATS_KEY, home?.id])
-      queryClient.setQueryData<CustomCategory[]>([CUSTOM_CATS_KEY, home?.id], (old) =>
-        old?.filter((c) => c.id !== id) ?? []
-      )
-      return { previous }
+  /**
+   * One-time migration: copies active recurring_bills rows into the budgets
+   * table as budget_type = 'fixed' for the current month.
+   *
+   * Guards:
+   *  - Only runs if there are recurring_bills rows for this home.
+   *  - Skips if fixed budget rows already exist for the current month.
+   *
+   * Intended to be called once on app boot (fire-and-forget, no toast on
+   * success). The caller should not await; errors are swallowed silently.
+   */
+  const migrateRecurringBillsToBudgets = useMutation({
+    mutationFn: async () => {
+      if (!home?.id) return
+
+      const currentMonthKey = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+
+      // Guard: check for existing fixed budgets this month
+      const { data: existingFixed, error: fixedErr } = await supabase
+        .from('budgets')
+        .select('id')
+        .eq('home_id', home.id)
+        .eq('budget_type', 'fixed')
+        .eq('month', currentMonthKey)
+        .limit(1)
+
+      if (fixedErr) throw fixedErr
+      if (existingFixed && existingFixed.length > 0) return // already migrated
+
+      // Read active recurring bills
+      const { data: bills, error: billsErr } = await supabase
+        .from('recurring_bills')
+        .select('name, amount, day_of_month, category')
+        .eq('home_id', home.id)
+        .eq('is_active', true)
+
+      if (billsErr) throw billsErr
+      if (!bills || bills.length === 0) return // nothing to migrate
+
+      // Insert fixed budget rows, one per bill
+      const inserts = bills.map((bill) => ({
+        home_id: home.id,
+        category: bill.name,
+        month: currentMonthKey,
+        amount: bill.amount,
+        budget_type: 'fixed' as BudgetType,
+        day_of_month: bill.day_of_month ?? null,
+      }))
+
+      const { error: insertErr } = await supabase
+        .from('budgets')
+        .upsert(inserts, { onConflict: 'home_id,category,month' })
+
+      if (insertErr) throw insertErr
     },
-    mutationFn: async ({ id }: { id: string }) => {
-      const { error } = await supabase.from('home_custom_categories').delete().eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => toast.success('Category removed'),
-    onError: (_err, _vars, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData([CUSTOM_CATS_KEY, home?.id], context.previous)
-      }
-      toast.error(translateError(_err))
-    },
-    onSettled: invalidateCustomCats,
+    onSettled: invalidateBudgets,
+    // Silent — no toast on success or error; this is a background migration.
   })
 
   return {
     summary,
     allCategories,
-    customCategories: customCatsQuery.data ?? [],
     rawBudgets: budgetsQuery.data ?? [],
-    isLoading: budgetsQuery.isLoading || customCatsQuery.isLoading,
-    isError: budgetsQuery.isError || customCatsQuery.isError,
+    isLoading: budgetsQuery.isLoading,
+    isError: budgetsQuery.isError,
     selectedMonth,
     prevMonth,
     nextMonth,
@@ -308,9 +402,16 @@ export function useBudget({ expenses }: { expenses: ExpenseWithSplits[] }) {
     hasBudgetHistory,
     canGoForward,
     monthsAhead,
+    // Typed accessors
+    getFixedBudgets,
+    getEnvelopes,
+    getTotalFixed,
+    getTotalEnvelopes,
+    getRemainingInEnvelope,
+    // Mutations
     upsertBudget,
+    batchUpsertBudgets,
     deleteBudget,
-    addCustomCategory,
-    deleteCustomCategory,
+    migrateRecurringBillsToBudgets,
   }
 }

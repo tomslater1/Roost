@@ -126,6 +126,15 @@ function createWindow(): void {
     mainWindow!.show()
   })
 
+  // Forward window focus/blur events to the renderer so LockContext
+  // can start the auto-lock timer when the user steps away.
+  mainWindow.on('blur', () => {
+    mainWindow?.webContents.send('app:blur')
+  })
+  mainWindow.on('focus', () => {
+    mainWindow?.webContents.send('app:focus')
+  })
+
   // If a deep link arrived before the renderer was ready, send it now.
   mainWindow.webContents.on('did-finish-load', () => {
     if (pendingDeepLink) {

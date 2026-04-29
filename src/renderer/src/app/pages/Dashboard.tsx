@@ -1,11 +1,12 @@
 import { Link } from "react-router";
 import { useState } from "react";
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { ShoppingCart, CheckSquare, Calendar, ArrowRight, Plus, Receipt, DollarSign, TrendingUp, Activity as ActivityIcon } from "lucide-react";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { useApp } from "../context/AppContext";
 import { useQuickAdd } from "../context/QuickAddContext";
+import { useCurrencyFormat } from "@/hooks/useHome";
 import { SettleUpModal } from "../components/SettleUpModal";
 import { AnimatedPage } from "../components/AnimatedPage";
 import { EmptyState } from "../components/EmptyState";
@@ -38,9 +39,11 @@ export function Dashboard() {
   } = useApp();
   
   const { openShopping, openExpense, openChore } = useQuickAdd();
+  const fmt = useCurrencyFormat();
   const [showSettleUpModal, setShowSettleUpModal] = useState(false);
-  
+
   const greeting = getGreeting();
+  const currentMonthLabel = format(new Date(), "MMMM");
   const balance = getBalance();
   
   // Calculate month spend
@@ -310,7 +313,7 @@ export function Dashboard() {
                 transition={{ duration: 0.35, ease: "easeOut" }}
               >
                 <p className="text-4xl font-semibold mb-1">
-                  £{balance.amount.toFixed(2)}
+                  {fmt(balance.amount)}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {balance.oweType === "owed"
@@ -322,11 +325,11 @@ export function Dashboard() {
               <div className="grid grid-cols-2 gap-4 mb-6 pt-4 border-t border-border">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Household spend</p>
-                  <p className="text-xl font-semibold">£{monthSpend.toFixed(2)}</p>
+                  <p className="text-xl font-semibold">{fmt(monthSpend)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Your share</p>
-                  <p className="text-xl font-semibold">£{(monthSpend / 2).toFixed(2)}</p>
+                  <p className="text-xl font-semibold">{fmt(monthSpend / 2)}</p>
                 </div>
               </div>
 
@@ -336,45 +339,45 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Month Budget */}
+          {/* Month spending */}
           <Card>
             <CardContent className="p-5">
               <div className="flex items-center gap-2 mb-5">
                 <TrendingUp className="w-5 h-5 text-primary" />
-                <span className="font-medium">March Budget</span>
+                <span className="font-medium">{currentMonthLabel} spending</span>
               </div>
-              
+
               <div className="mb-4">
-                <p className="text-4xl font-semibold mb-1">£{monthSpend.toFixed(2)}</p>
-                <p className="text-sm text-muted-foreground">of £{budgetTotal.toFixed(2)}</p>
+                <p className="text-4xl font-semibold mb-1">{fmt(monthSpend)}</p>
+                <p className="text-sm text-muted-foreground">of {fmt(budgetTotal)}</p>
               </div>
-              
+
               <div className="w-full h-3 bg-muted rounded-full overflow-hidden mb-3">
-                <div 
-                  className="h-full bg-primary rounded-full transition-all" 
+                <div
+                  className="h-full bg-primary rounded-full transition-all"
                   style={{ width: `${budgetTotal > 0 ? (monthSpend / budgetTotal) * 100 : 0}%` }}
                 />
               </div>
               <div className="flex items-center justify-between text-sm mb-6 pt-1">
                 <span className="text-muted-foreground">{budgetTotal > 0 ? Math.round((monthSpend / budgetTotal) * 100) : 0}% used</span>
-                <span className="font-medium text-success">£{(budgetTotal - monthSpend).toFixed(2)} left</span>
+                <span className="font-medium text-success">{fmt(budgetTotal - monthSpend)} left</span>
               </div>
 
-              <Link to="/budget">
+              <Link to="/money">
                 <Button variant="outline" className="w-full gap-2">
-                  View budget <ArrowRight className="w-4 h-4" />
+                  View Money <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
             </CardContent>
           </Card>
         </div>
 
-        {/* Budget Categories */}
+        {/* Spending categories */}
         <Card>
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium">Budget Categories</h3>
-              <Link to="/budget" className="text-sm text-primary hover:underline">
+              <h3 className="font-medium">Spending categories</h3>
+              <Link to="/money/spending" className="text-sm text-primary hover:underline">
                 View all →
               </Link>
             </div>
@@ -384,12 +387,12 @@ export function Dashboard() {
               {budgetCategories.map((cat) => {
                 const percentage = cat.limit > 0 ? (cat.spent / cat.limit) * 100 : 0;
                 const isWarning = percentage > 80;
-                
+
                 return (
                   <div key={cat.name} className="p-4 bg-muted/50 rounded-xl">
                     <p className="font-medium mb-3">{cat.name}</p>
-                    <p className="text-2xl font-semibold mb-1">£{cat.spent.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground mb-3">of £{cat.limit.toFixed(2)}</p>
+                    <p className="text-2xl font-semibold mb-1">{fmt(cat.spent)}</p>
+                    <p className="text-xs text-muted-foreground mb-3">of {fmt(cat.limit)}</p>
                     
                     <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-2">
                       <div 
@@ -415,7 +418,7 @@ export function Dashboard() {
                 <Receipt className="w-5 h-5 text-primary" />
                 <h3 className="font-medium">Recent Expenses</h3>
               </div>
-              <Link to="/expenses" className="text-sm text-primary hover:underline">
+              <Link to="/money/spending" className="text-sm text-primary hover:underline">
                 View all →
               </Link>
             </div>
@@ -428,7 +431,7 @@ export function Dashboard() {
                     <p className="font-medium mb-1">{expense.title}</p>
                     <p className="text-xs text-muted-foreground">{expense.payer} • {getTimeAgo(new Date(expense.date))}</p>
                   </div>
-                  <span className="text-xl font-semibold">£{expense.amount.toFixed(2)}</span>
+                  <span className="text-xl font-semibold">{fmt(expense.amount)}</span>
                 </div>
               ))}
             </div>

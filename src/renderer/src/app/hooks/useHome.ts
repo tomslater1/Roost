@@ -6,6 +6,19 @@ import { useRealtime } from './useRealtime'
 import { z } from 'zod'
 import { homeSchema, homeMemberSchema, type Home, type HomeMember } from '@/lib/schemas/home'
 
+// ── Currency format hook ──────────────────────────────────────────────────────
+// Returns a function that formats amounts using the household's currency setting.
+// Falls back to GBP. Uses TanStack Query cache — no extra network requests.
+export function useCurrencyFormat(): (amount: number) => string {
+  const { home } = useHome()
+  const currency = home?.currency_symbol ?? 'GBP'
+  return useCallback(
+    (amount: number) =>
+      new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount),
+    [currency]
+  )
+}
+
 // Fetches the current user's home and all its members
 export function useHome() {
   const { user } = useAuthContext()
@@ -68,6 +81,12 @@ export function useHome() {
     queryClient.invalidateQueries({ queryKey: ['home', user?.id] })
   }, [homeQuery.data?.id, user?.id, queryClient])
 
+  const updateCurrencySymbol = useCallback(async (currencyCode: string) => {
+    if (!homeQuery.data?.id) return
+    await supabase.from('homes').update({ currency_symbol: currencyCode }).eq('id', homeQuery.data.id)
+    queryClient.invalidateQueries({ queryKey: ['home', user?.id] })
+  }, [homeQuery.data?.id, user?.id, queryClient])
+
   return {
     home: homeQuery.data,
     members: membersQuery.data ?? [],
@@ -75,5 +94,6 @@ export function useHome() {
     membersLoading: membersQuery.isLoading,
     homeError: homeQuery.error,
     updateNextShopDate,
+    updateCurrencySymbol,
   }
 }

@@ -23,13 +23,9 @@ import { useChores } from '../hooks/useChores'
 import { useExpenses } from '../hooks/useExpenses'
 import { useBudget } from '../hooks/useBudget'
 import { useShoppingList } from '../hooks/useShoppingList'
+import { useBudgetTemplate } from '../hooks/useBudgetTemplate'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { RoomIcon } from '../components/RoomIcon'
-import { mergeCategories } from '../lib/categories'
-import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
-import { z } from 'zod'
-import { customCategorySchema } from '@/lib/schemas/budgets'
 
 const LINK_META = {
   room: { label: 'Room', icon: Home },
@@ -52,22 +48,7 @@ export function Pinboard() {
   const { expenses } = useExpenses()
   const { summary } = useBudget({ expenses })
   const { items: shoppingItems } = useShoppingList()
-
-  const customCatsQuery = useQuery({
-    queryKey: ['custom-categories', home?.id],
-    enabled: !!home?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('home_custom_categories')
-        .select('*')
-        .eq('home_id', home!.id)
-        .order('created_at', { ascending: true })
-      if (error) throw error
-      return z.array(customCategorySchema).parse(data)
-    },
-  })
-
-  const allCategories = mergeCategories(customCatsQuery.data ?? [])
+  const { categories: allCategories } = useBudgetTemplate()
 
   const [content, setContent] = useState('')
   const [linkType, setLinkType] = useState<LinkType>('none')

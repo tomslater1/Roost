@@ -23,6 +23,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { useApp } from "../context/AppContext";
+import { useCurrencyFormat } from "@/hooks/useHome";
 
 const ease = [0.43, 0.13, 0.23, 0.96] as const
 const spring = { type: "spring" as const, stiffness: 400, damping: 17 }
@@ -40,6 +41,7 @@ type PaymentMethod = "manual"
 
 export function SettleUpModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { getBalance, addSettlement, currentUser, partnerName } = useApp()
+  const fmt = useCurrencyFormat()
   const balance = getBalance()
 
   const [amount, setAmount] = useState(balance.amount.toFixed(2))
@@ -92,7 +94,7 @@ export function SettleUpModal({ open, onOpenChange }: { open: boolean; onOpenCha
               >
                 <p className="font-medium text-lg">All settled up!</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  £{settledAmount.toFixed(2)} recorded between {payer} and {payee}
+                  {fmt(settledAmount)} recorded between {payer} and {payee}
                 </p>
               </motion.div>
             </motion.div>
@@ -127,7 +129,7 @@ export function SettleUpModal({ open, onOpenChange }: { open: boolean; onOpenCha
                   >
                     <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   </motion.div>
-                  <p className="text-sm font-medium text-primary">£{balance.amount.toFixed(2)}</p>
+                  <p className="text-sm font-medium text-primary">{fmt(balance.amount)}</p>
                 </div>
                 <div className="flex flex-col items-center gap-1.5">
                   <Avatar name={payee} />
@@ -142,7 +144,7 @@ export function SettleUpModal({ open, onOpenChange }: { open: boolean; onOpenCha
                 transition={{ duration: 0.25, delay: 0.1, ease }}
                 className="space-y-2"
               >
-                <Label htmlFor="settle-amount">Amount (£)</Label>
+                <Label htmlFor="settle-amount">Amount</Label>
                 <Input
                   id="settle-amount"
                   type="number"
@@ -236,7 +238,7 @@ export function SettleUpModal({ open, onOpenChange }: { open: boolean; onOpenCha
                 </Button>
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={spring}>
                   <Button onClick={handleSettle} disabled={settledAmount <= 0}>
-                    Confirm £{settledAmount > 0 ? settledAmount.toFixed(2) : "0.00"}
+                    Confirm {settledAmount > 0 ? fmt(settledAmount) : fmt(0)}
                   </Button>
                 </motion.div>
               </motion.div>

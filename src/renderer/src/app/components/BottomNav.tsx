@@ -2,8 +2,7 @@ import { NavLink } from "react-router";
 import {
   LayoutDashboard,
   ShoppingCart,
-  Receipt,
-  PiggyBank,
+  Wallet,
   CheckSquare,
   CalendarDays,
   Pin,
@@ -13,8 +12,7 @@ import { useApp } from "../context/AppContext";
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, dataOnboarding: "" },
   { path: "/shopping", label: "Shopping", icon: ShoppingCart, dataOnboarding: "nav-shopping" },
-  { path: "/expenses", label: "Expenses", icon: Receipt, dataOnboarding: "nav-expenses" },
-  { path: "/budget", label: "Budget", icon: PiggyBank, dataOnboarding: "nav-budget" },
+  { path: "/money", label: "Money", icon: Wallet, dataOnboarding: "nav-budget" },
   { path: "/chores", label: "Chores", icon: CheckSquare, dataOnboarding: "nav-chores" },
   { path: "/calendar", label: "Calendar", icon: CalendarDays, dataOnboarding: "nav-calendar" },
   { path: "/pinboard", label: "Pinboard", icon: Pin, dataOnboarding: "" },

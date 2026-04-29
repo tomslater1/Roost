@@ -1,14 +1,15 @@
 import { NavLink, Outlet, useLocation } from "react-router";
-import { User, Users, Wallet, LogOut, Sparkles, DoorOpen, Bell, Crown } from "lucide-react";
+import { User, Users, Wallet, LogOut, Sparkles, DoorOpen, Bell, Crown, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 const settingsNav = [
   { path: "/settings/profile", label: "Profile", icon: User },
   { path: "/settings/household", label: "Household", icon: Users },
-  { path: "/settings/rooms", label: "Rooms", icon: DoorOpen },
-  { path: "/settings/budget-categories", label: "Budget Categories", icon: Wallet },
-  { path: "/settings/hazel", label: "Hazel", icon: Sparkles },
+  { path: "/settings/money", label: "Money", icon: Wallet },
+  { path: "/settings/security", label: "Security", icon: ShieldCheck },
   { path: "/settings/notifications", label: "Notifications", icon: Bell },
+  { path: "/settings/hazel", label: "Hazel", icon: Sparkles },
+  { path: "/settings/rooms", label: "Rooms", icon: DoorOpen },
   { path: "/settings/account", label: "Account", icon: LogOut },
   { path: "/settings/subscription", label: "Subscription", icon: Crown },
 ];
@@ -26,14 +27,14 @@ export function SettingsLayout() {
 
       {/* Navigation tabs */}
       <div className="border-b border-border">
-        <nav className="flex gap-1">
+        <nav className="flex gap-1 overflow-x-auto scrollbar-none">
           {settingsNav.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink key={item.path} to={item.path}>
                 {({ isActive }) => (
                   <span
-                    className={`relative flex items-center gap-2 px-3 py-3 text-sm font-medium transition-colors rounded-t-md ${
+                    className={`relative flex items-center gap-2 px-3 py-3 text-sm font-medium transition-colors rounded-t-md whitespace-nowrap ${
                       isActive
                         ? "text-primary"
                         : "text-muted-foreground hover:text-foreground"
